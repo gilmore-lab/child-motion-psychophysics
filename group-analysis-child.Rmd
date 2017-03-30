@@ -405,10 +405,86 @@ av <- anova(mod.main.eff, mod.age.main)
 ```
  
 Yes, the goodness of fit dropped substantially without `AgeYrs`. 
-##3 Tabular summary of main effects with age 
 
-```{r main-effects-with-age-table}
+### Tabular summary of main effects with age 
+
+```{r main-effects-with-age-table, eval=FALSE}
 sjt.glmer(mod.age.main)
 ```
 
+### Effects summary
+
+```{r p-corr-summary}
+p.corr.fixed <- fixef(mod.age.main)
+#p.corr.ci <- confint(mod.age.main) # Takes 25 min to estimate!
+#p.corr.ci <- p.corr.ci[3:dim(p.corr.ci)[1],] # drop first two rows
+p.corr.ci <- read.csv("analyses/p.corr.ci.csv", header=TRUE)
+p.corr.ci <- p.corr.ci[,2:3] # drop first 
+p.corr.eff.size <- p.corr.fixed/sigma(mod.age.main)
+p.corr.effects.df <- data.frame(beta = p.corr.fixed, 
+                                ci.low = p.corr.ci[,1], 
+                                ci.hi = p.corr.ci[,2], 
+                                eff.sz = p.corr.eff.size)
+p.corr.effects.df %>%
+  knitr::kable()
+```
+
+## Reaction time data
+
+### Main effects model
+
+Drop the trial to trial effects by focusing on data by condition using `df.bysub.bycond`.
+
+```{r rt-model-main-effects}
+form.age.main <- RT.mean ~ AgeYrs + Coh + PatternType + Speed + (1|SubID)
+mod.age.main <- lmer(formula = form.age.main, data = df.bysub.bycond)
+```
+
+Model converges, let's look at the results.
+
+```{r rt-model-main-effects-summary}
+summary(mod.age.main)
+```
+
+This suggests that there are (linear) main effects of `AgeYrs`, `Coh`, `PatternType`, and `Speed` in the directions indicated by the plots.
+
+Let's try adding a quadratic term in `Coh` since it looks like there might be one.
+
+### Add-in quadratic term for `Coh`
+
+```{r rt-model-quadratic-coh}
+form.age.main.quad.coh <- RT.mean ~ AgeYrs + Coh + I(Coh*Coh) + PatternType + Speed + (1|SubID)
+mod.age.main.quad.coh <- update(mod.age.main, formula = form.age.main.quad.coh)
+```
+
+That converges, also. Let's look at it and compare to the previous model.
+
+```{r rt-model-quadratic-coh-summary}
+summary(mod.age.main.quad.coh)
+anova(mod.age.main, mod.age.main.quad.coh)
+```
+
+The model with the quadratic term for `Coh` is a better fit, $\chi^2$(1)<2.2e-16.
+
+## Text summary
+
+I found this <https://www.jaredknowles.com/journal/2014/5/17/mixed-effects-tutorial-2-fun-with-mermod-objects> helpful.
+
+```{r rt-text-summary}
+rt.fixed <- fixef(mod.age.main.quad.coh)
+rt.ci <- confint(mod.age.main.quad.coh)
+rt.ci <- rt.ci[3:dim(rt.ci)[1],] # drop first two rows
+rt.eff.size <- rt.fixed/sigma(mod.age.main.quad.coh)
+rt.effects.df <- data.frame(beta = rt.fixed, ci.low = rt.ci[,1], ci.hi = rt.ci[,2], eff.sz = rt.eff.size)
+rt.effects.df %>%
+  knitr::kable()
+```
+
+We fit a model to the RT time with the following 
+
+# Resources
+
+```{r}
+print(sessionInfo(),locale=FALSE)
+```
 
