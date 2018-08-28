@@ -80,7 +80,7 @@ moco.beh.child$Acc[is.na(moco.beh.child$Acc)] <- FALSE
 moco.beh.child %>% group_by(SubID, PatternType, Speed, Coh) %>% 
   summarize(N.corr = sum(Acc), N.tot = n(), Pct.Corr = N.corr/N.tot) -> d.summ
 
-# Write data file to csv
+# Write aggregate data file to csv
 write.csv(x = moco.beh.child, file = aggregate.fn, row.names = FALSE)
 msg <- sprintf("Wrote aggregate data file to: \n\t%s\n", aggregate.fn)
 cat(msg)
