@@ -11,3 +11,5 @@ This project contains files for the motion coherence psychophysics project with 
     - *pubs/srcd-2017-poster* contains files related to a poster we presented at the 2017 SRCD conference.
 - Reports
     - The *group-analysis-child* reports can be viewed in [Markdown](group-analysis-child.md), [R Markdown](group-analysis-child.Rmd), or [HTML](group-analysis-child.html) formats.
+    
+This sentence is a test to try to push the md into github.
