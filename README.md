@@ -12,4 +12,3 @@ This project contains files for the motion coherence psychophysics project with 
 - Reports
     - The *group-analysis-child* reports can be viewed in [Markdown](group-analysis-child.md), [R Markdown](group-analysis-child.Rmd), and [HTML](group-analysis-child.html) formats.
 
-test
