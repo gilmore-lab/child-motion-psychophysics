@@ -3,6 +3,7 @@ title: "MOCO_analysis"
 author: "Yiming"
 date: "9/12/2018"
 output: pdf_document
+Description: this file indicates the statistical analysis of the MOCO projects (both children and adults)
 ---
 
 ```{r setup, include=FALSE}
@@ -29,6 +30,32 @@ plot(pressure)
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
 
-## load the file 
+## Import aggregate data
 
+Here we import the aggregate data file found in `analyses/data-aggregate/moco-beh-child.csv`, convert `AgeDays` to a categorical factor, `AgeYrs`, and compute some summary statistics across trial and block. These summary values are saved to the  `df.bysub.bycond` data frame.
+
+```{r import-data}
+# Import child MOCO data, normalize
+df <- read.csv(file = "analyses/data-aggregate/moco-beh-child.csv", header = TRUE)
+
+# read the first 6 rows of the data
+head(df)
+
+# Convert age in days to years
+df$AgeYrs <- ordered(cut(df$AgeDays/365.25, 
+                 breaks = c(0,5,6,7,8,9), 
+                 labels = c("<5yo", "5yo", "6yo", "7yo", "8yo")))
+
+df %>% 
+  group_by(AgeYrs, Gender, AgeDays, SubID, PatternType, Speed, Coh) %>% 
+  summarize(N.corr = sum(Acc), 
+            N.tot = n(), 
+            Pct.Corr = N.corr/N.tot,
+            RT.mean=mean(RT),
+            RT.sd=sd(RT)) -> 
+  df.bysub.bycond
+# read the first 6 rows of this data
+head(df.bysub.bycond)
+
+```
 ## the multilevel model 
