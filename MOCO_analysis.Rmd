@@ -30,6 +30,10 @@ plot(pressure)
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
 
+# Load libraries
+library(dplyr)
+library(ggplot2)
+
 ## Import aggregate data
 
 Here we import the aggregate data file found in `analyses/data-aggregate/moco-beh-child.csv`, convert `AgeDays` to a categorical factor, `AgeYrs`, and compute some summary statistics across trial and block. These summary values are saved to the  `df.bysub.bycond` data frame.
@@ -54,6 +58,7 @@ df %>%
             RT.mean=mean(RT),
             RT.sd=sd(RT)) -> 
   df.bysub.bycond
+
 # read the first 6 rows of this data
 head(df.bysub.bycond)
 
