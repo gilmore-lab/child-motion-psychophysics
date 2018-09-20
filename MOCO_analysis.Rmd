@@ -58,4 +58,366 @@ df %>%
 head(df.bysub.bycond)
 
 ```
-## the multilevel model 
+## the multilevel model
+Generalized linear mixed effects model 
+The level 1 (i) is accuracy or RT in each condition for each subject. The level 2 (j) is each subject. The random effects in this model are SubID, Gender and AgeYrs. Fixed effects are Speed, PatternType, Coh, and their interaction
+
+# Plot of *p*(corr) by condition
+
+```{r p-corr-pattern-speed-plot, include=TRUE}
+  # Plot theme, customizations
+
+y_lbl <- 'p(corr)'
+title_text <- 'p(corr) by Coherence, Pattern, and Speed'
+df.bysub.bycond$Speed <- factor(df.bysub.bycond$Speed, labels = c("2 deg/s", "8 deg/s"))
+
+# Plot for all subs
+p <- ggplot(data=df.bysub.bycond, aes(x=Coh, y=Pct.Corr)) 
+p <- p + 
+  geom_line(aes(group=SubID, color=AgeYrs)) +
+  facet_grid(facets = Speed ~ PatternType) +
+  labs(x="Coherence", y=y_lbl) +
+  #ggtitle(title_text) +
+  theme_bw() +
+  theme.custom +
+  xlim(0, 1) +
+  geom_hline(yintercept=0.5, linetype="dashed")
+p
+```
+
+# Plot of reaction time
+
+```{r rt-pattern-speed-plot, include=TRUE}
+# Plot RTs
+y_lbl <- 'RT (s)'
+title_text <- 'RT by Coherence, Pattern, and Speed'
+
+# Plot for all subs
+p <- ggplot(data=df.bysub.bycond, aes(x=Coh, y=RT.mean))
+p <- p + 
+  geom_line(aes(group=SubID, color=AgeYrs)) +
+  facet_grid(facets = Speed ~ PatternType) +
+  labs(x="Coherence", y=y_lbl) +
+  # ggtitle(title_text) +
+  theme_bw() +
+  theme.custom +
+  xlim(0, 1)
+p 
+```
+#Generalized linear mixed effects model with a probit link/ weiboll model.
+# Yij = B0j+B1j*PatternTypeij+B2j*Speedij+B3j*Cohij+eij
+# Boj = r00+r01AgeYrsj+r02Genderj+u0j
+# B1j = r10+u1j
+# B2j = r20+u2j
+# B3j = r30+u3j 
+# Accuracy 
+library(lme4)
+# probit link function
+# Empty model
+```{r probit-empty, eval=FALSE}
+form.empty <- df$Acc~(1|df$SubID)
+model.empty <- glmer(formula = form.empty, family=binomial(mafc.probit(2)), data = df)
+```
+```{r summary.full.model, eval=FALSE}
+summary(model.empty)
+```
+```{r ICC-Acc, eval=FALSE}
+ICC_Acc <- 0.1289/(0.1289+0.8074)
+```
+I can write a function to calculate ICC
+ICC is small (14%)
+
+# full model with random intercept
+```{r probit-full, eval=FALSE}
+form.full <- Acc ~ Coh + Speed + PatternType + (1|SubID)
+model.full <- glmer(formula = form.full, family=binomial(mafc.probit(2)), data = df)
+```
+```{r summary.full, eval=FALSE}
+summary(model.full)
+```
+AIC 5753
+
+# full model with random intercept and random slope
+```{r probit-random-slope-gender, eval=FALSE}
+model.full.slope1<- Acc ~ Coh + Speed + PatternType + (1+Gender|SubID)
+model.full.slope1<- glmer(formula = model.full.slope1, family=binomial(mafc.probit(2)), data = df)
+summary(model.full.slope1)
+```
+AIC 5757
+```{r probit-random-slope-AgeYrs, eval=FALSE}
+form.slope2 <- Acc ~ Coh + Speed + PatternType + (1+AgeYrs|SubID)
+model.slope2 <- glmer(formula = form.slope2, family=binomial(mafc.probit(2)), data = df)
+summary(model.slope2)
+```
+AIC 5767
+AIC does not decrease in the random slope model
+# interaction
+```{r probit-interaction, eval=FALSE}
+form.full.interaction<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
+model.full.interaction <- glmer(formula = form.full.interaction, family=binomial(mafc.probit(2)), data = df)
+summary(model.full.interaction)
+```
+model failed to converge
+# bumped up max number of iterations.
+ss <- getME(model.full.interaction,c("theta","fixef"))
+m2 <- update(model.full.interaction,start=ss,control=glmerControl(optCtrl=list(maxfun=2e4)))
+# still failed,  Try a different optimizer
+m3 <- update(model.full.interaction,start=ss,control=glmerControl(optimizer="bobyqa",
+                            optCtrl=list(maxfun=2e5)))
+summary(m3)
+# AIC 5735, better model fit
+```{r Acc-coef-plot, include=TRUE}
+#ranef(model.full,confVar=T)
+#A generic function to extract the conditional modes of the random effects from a fitted model object.
+#coef(model.full)
+#coef is a generic function which extracts model coefficients from objects returned by modeling functions. coefficients is an alias for it.
+hist(ranef(m3)$SubID[1:30,],xlab="U0j",main="Histogram of random effects")
+hist(coef(m3)$SubID[1:30,1],xlab="Random intercepts",main="Histogram of random intercepts")
+```
+
+```{r subject-specific-regression-plot}
+#plot lines for the first 5 schools based on the posterior means (M3)
+plot(x=c(0,1),y=c(0,1),type="n",xlab="fixed effects",ylab="Acc",main="Subject-specific regression lines, m3")
+for(i in 1:30) {
+abline(a=coef(m3)$SubID[i,1],b=coef(m3)$SubID[i,2])
+}
+```
+# logit link function
+```{r logit-interaction, eval=FALSE}
+form.logit.interaction<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
+model.logit.interaction <- glmer(formula = form.logit.interaction, family=binomial(link="logit"), data = df)
+summary(model.logit.interaction)
+```
+wald.test(b = coef(model.logit.interaction), Sigma = vcov(model.logit.interaction), Terms = 4:6)
+#AIC 5732, smaller AIC
+
+```{r cloglog-interaction, eval=FALSE}
+form.cloglog.interaction<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
+model.cloglog.interaction <- glmer(formula = form.cloglog.interaction, family=binomial(mafc.cloglog(2)), data = df)
+summary(model.cloglog.interaction)
+ss <- getME(model.cloglog.interaction,c("theta","fixef"))
+m2 <- update(model.cloglog.interaction,start=ss,control=glmerControl(optCtrl=list(maxfun=2e4)))
+# still failed,  Try a different optimizer
+m3 <- update(model.cloglog.interaction,start=ss,control=glmerControl(optimizer="bobyqa",
+                            optCtrl=list(maxfun=2e5)))
+summary(m3)
+```
+# AIC 5768
+
+# Weibull function
+```{r weibull-interaction, eval=FALSE}
+library(VGAM)
+form.weibull.interaction<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
+model.weibull.interaction <- vglm(formula = form.weibull.interaction, family = weibull(link='log'), data = df)
+summary(model.weibull.interaction)
+```
+
+# RT
+# Empty model
+```{r probit-empty, eval=FALSE}
+form.empty.rt <- df$RT~(1|df$SubID)
+model.empty.rt <- lmer(formula = form.empty, data = df,REML=FALSE)
+```
+```{r summary.full.model, eval=FALSE}
+summary(model.empty.rt)
+```
+```{r RT-ICC, eval=FALSE}
+ICC_RT <- 0.1849/(0.1849+2.37)
+```
+ICC is small
+AIC 4920
+
+# Gaussian model with random intercept
+```{r rt-gaussian, eval=FALSE}
+form.full.rt <- RT ~ Coh + Speed + PatternType + (1|SubID)
+model.full.rt <- lmer(formula = form.full.rt,  data = df, REML=FALSE)
+```
+```{r summary.full, eval=FALSE}
+summary(model.full.rt)
+```
+AIC 30918
+
+normalize <- function(x){(x-min(x))/(max(x)-min(x))}
+# probit model with random intercept
+```{r rt-probit, eval=FALSE}
+form.probit.rt <- normalize(df$RT) ~ Coh + Speed + PatternType + (1|SubID)
+model.probit.rt <- glmer(formula = form.full.rt, family = binomial(link = "probit") ,data = df)
+```
+```{r summary.full, eval=FALSE}
+summary(model.probit.rt)
+```
+
+# survival model
+
+# full model with random intercept and random slope
+```{r probit-random-slope-gender, eval=FALSE}
+model.full.slope1<- RT ~ Coh + Speed + PatternType + (1+Gender|SubID)
+model.full.slope1<- lmer(formula = model.full.slope1, data = df, REML=FALSE)
+summary(model.full.slope1)
+```
+AIC 30922
+```{r probit-random-slope-AgeYrs, eval=FALSE}
+form.slope2 <- RT ~ Coh + Speed + PatternType + (1+AgeYrs|SubID)
+model.slope2 <- lmer(formula = form.slope2, data = df, REML=FALSE)
+summary(model.slope2)
+```
+AIC 30927
+AIC does not decrease in the random slope model
+# interaction
+```{r probit-interaction, eval=FALSE}
+form.full.interaction<- RT ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
+model.full.interaction <- lmer(formula = form.full.interaction, data = df, REML=FALSE)
+summary(model.full.interaction)
+```
+AIC 30921
+# bumped up max number of iterations.
+ss <- getME(model.full.interaction,c("theta","fixef"))
+m2 <- update(model.full.interaction,start=ss,control=glmerControl(optCtrl=list(maxfun=2e4)))
+# still failed,  Try a different optimizer
+m3 <- update(model.full.interaction,start=ss,control=glmerControl(optimizer="bobyqa",
+                            optCtrl=list(maxfun=2e5)))
+summary(m3)
+# AIC 5735, better model fit
+```{r Acc-coef-plot, include=TRUE}
+#ranef(model.full,confVar=T)
+#A generic function to extract the conditional modes of the random effects from a fitted model object.
+#coef(model.full)
+#coef is a generic function which extracts model coefficients from objects returned by modeling functions. coefficients is an alias for it.
+hist(ranef(m3)$SubID[1:30,],xlab="U0j",main="Histogram of random effects")
+hist(coef(m3)$SubID[1:30,1],xlab="Random intercepts",main="Histogram of random intercepts")
+```
+
+```{r subject-specific-regression-plot}
+#plot lines for the first 5 schools based on the posterior means (M3)
+plot(x=c(0,1),y=c(0,1),type="n",xlab="fixed effects",ylab="Acc",main="Subject-specific regression lines, m3")
+for(i in 1:30) {
+abline(a=coef(m3)$SubID[i,1],b=coef(m3)$SubID[i,2])
+}
+```
+# logit link function
+```{r logit-interaction, eval=FALSE}
+form.logit.interaction<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
+model.logit.interaction <- glmer(formula = form.logit.interaction, family=binomial(link="logit"), data = df)
+summary(model.logit.interaction)
+```
+#AIC 5732, smaller AIC
+
+
+
+
+
+
+
+## group analysis (ANOVA)
+# Acc
+# Plot of speed across patterns by age
+
+```{r p-corr-by-speed-and-age-plot}
+# Evaluate Speed by Coherence interaction
+spd.by.coh <- df.bysub.bycond %>%
+  group_by(Speed, Coh, AgeYrs) %>%
+  summarize(Pct.Corr.mean = mean(Pct.Corr, na.rm=TRUE),
+            Pct.Corr.sem = sd(Pct.Corr, na.rm=TRUE)/sqrt( n() ))
+
+limits = aes( ymax = Pct.Corr.mean + Pct.Corr.sem , ymin = Pct.Corr.mean - Pct.Corr.sem )
+
+p6 <- 
+  ggplot( data=spd.by.coh, aes(x=Coh, y=Pct.Corr.mean, color = AgeYrs) ) +
+  facet_grid( facets = . ~ Speed ) +
+  geom_line() +
+  geom_pointrange( limits ) +
+  xlim(0,1) +
+  ylim(.4, 1) +
+  ylab("p(corr)") +
+  xlab("Coherence)") +
+  theme_bw() +
+  theme.custom +
+  geom_hline(yintercept=0.5, linetype="dashed")
+p6
+```
+# Plot of coherence by pattern across age
+
+```{r p-corr-by-pattern-and-age-plot, include=TRUE}
+patt.by.coh <- df.bysub.bycond %>%
+  group_by(PatternType, Coh, AgeYrs) %>%
+  summarize(Pct.Corr.mean = mean(Pct.Corr, na.rm=TRUE),
+            Pct.Corr.sem = sd(Pct.Corr, na.rm=TRUE)/sqrt( n() ))
+
+limits = aes( ymax = Pct.Corr.mean + Pct.Corr.sem , ymin = Pct.Corr.mean - Pct.Corr.sem )
+
+p7 <- 
+  ggplot( data=patt.by.coh, aes(x=Coh, y=Pct.Corr.mean, color = AgeYrs) ) +
+  facet_grid( facets = ~ PatternType ) +
+  geom_line() +
+  geom_pointrange( limits ) +
+  xlim(0, 1) +
+  ylim(.4, 1) +
+  ylab("p(corr)") +
+  xlab("Coherence)") +
+  theme_bw() +
+  theme.custom +
+  geom_hline(yintercept=0.5, linetype="dashed")
+p7
+```
+#RT
+
+# RT by pattern across age
+
+```{r rt-by-pattern-and-age-plot}
+patt.by.coh.rt <- df.bysub.bycond %>%
+  group_by(PatternType, Coh, AgeYrs) %>%
+  summarize(RT.Cond.mean = mean(RT.mean, na.rm=TRUE),
+            RT.sem = sd(RT.sd, na.rm=TRUE)/sqrt( n() ))
+
+limits = aes(ymax = RT.Cond.mean + RT.sem, ymin = RT.Cond.mean - RT.sem)
+
+p7 <- 
+  ggplot( data=patt.by.coh.rt, aes(x=Coh, y=RT.Cond.mean, color = AgeYrs)) +
+  facet_grid( facets = ~ PatternType ) +
+  geom_line() +
+  geom_pointrange( limits ) +
+  xlim(0, 1) +
+  ylab("RT (s)") +
+  xlab("Coherence") +
+  theme_bw() +
+  theme.custom
+p7
+```
+# RT by speed across patterns
+
+```{r rt-by-speed-and-age-plot, include=TRUE}
+# Evaluate Speed by Coherence interaction
+spd.by.coh.rt <- df.bysub.bycond %>%
+  group_by(Speed, Coh, AgeYrs) %>%
+  summarize(RT.Cond.mean = mean(RT.mean, na.rm=TRUE),
+            RT.sem = sd(RT.sd, na.rm=TRUE)/sqrt( n() ))
+
+limits = aes(ymax = RT.Cond.mean + RT.sem, ymin = RT.Cond.mean - RT.sem)
+
+p.rt <- 
+  ggplot( data=spd.by.coh.rt, aes(x=Coh, y=RT.Cond.mean, color = AgeYrs)) +
+  facet_grid( facets = . ~ Speed ) +
+  geom_line() +
+  geom_pointrange( limits ) +
+  xlim(0,1) +
+  ylab("RT (s)") +
+  xlab("Coherence") +
+  theme_bw() +
+  theme.custom
+p.rt
+```
+
+
+
+
+
+
+## threshold 
+
+## Gender effect
+
+## left/Right coherence
+
+## Age effect
+
+## child v.s. adult 
