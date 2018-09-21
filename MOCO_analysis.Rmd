@@ -36,7 +36,7 @@ library(ggplot2)
 
 ## Import aggregate data
 
-Here we import the aggregate data file found in `analyses/data-aggregate/moco-beh-child.csv`, convert `AgeDays` to a categorical factor, `AgeYrs`, and compute some summary statistics across trial and block. These summary values are saved to the  `df.bysub.bycond` data frame.
+Here we import the aggregate data file found in `analyses/data-aggregate/moco-beh-child.csv`, convert `AgeDays` to a categorical factor, `AgeYrs`, and compute some summary statistics across trial and block. These summary values are saved to the  `df.bysub.bycond` data frame.In these two dataset, the NaN of Acc is fixed but the outliers are not cleaned up.
 
 ```{r import-data}
 # Import child MOCO data, normalize
@@ -49,6 +49,13 @@ head(df)
 df$AgeYrs <- ordered(cut(df$AgeDays/365.25, 
                  breaks = c(0,5,6,7,8,9), 
                  labels = c("<5yo", "5yo", "6yo", "7yo", "8yo")))
+which(df$AgeDays< 5*365.25) # there is no child younger than 5 yrs
+df$Age <- ordered(cut(df$AgeDays/365.25, 
+                 breaks = c(5,6,7,8,9), 
+                 labels = c("5", "6", "7", "8")))
+
+# Convert gender into dummy
+df$Sex<-as.numeric(as.factor(df$Gender)) # Male 2, Female 1
 
 df %>% 
   group_by(AgeYrs, Gender, AgeDays, SubID, PatternType, Speed, Coh) %>% 
@@ -63,6 +70,12 @@ df %>%
 head(df.bysub.bycond)
 
 ```
+## Clean the data
+```{r clean-up-data}
+# Clean the outliner of RT, such as 0 or 3SD (8s but accurate, what happened?)
+# normalize the data ?
+```
+
 ## the multilevel model
 Generalized linear mixed effects model 
 The level 1 (i) is accuracy or RT in each condition for each subject. The level 2 (j) is each subject. The random effects in this model are SubID, Gender and AgeYrs. Fixed effects are Speed, PatternType, Coh, and their interaction
@@ -115,8 +128,8 @@ p
 # B1j = r10+u1j
 # B2j = r20+u2j
 # B3j = r30+u3j 
-# Accuracy 
 library(lme4)
+# Accuracy 
 # probit link function
 # Empty model
 ```{r probit-empty, eval=FALSE}
@@ -150,7 +163,7 @@ summary(model.full.slope1)
 ```
 AIC 5757
 ```{r probit-random-slope-AgeYrs, eval=FALSE}
-form.slope2 <- Acc ~ Coh + Speed + PatternType + (1+AgeYrs|SubID)
+form.slope2 <- Acc ~ Coh + Speed + PatternType + (1+Age|SubID)
 model.slope2 <- glmer(formula = form.slope2, family=binomial(mafc.probit(2)), data = df)
 summary(model.slope2)
 ```
