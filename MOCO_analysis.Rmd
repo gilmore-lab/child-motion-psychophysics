@@ -1,38 +1,35 @@
 ---
 title: "MOCO_analysis"
 author: "Yiming"
-date: "9/12/2018"
+date: "`r Sys.time()`"
 output: pdf_document
 Description: this file indicates the statistical analysis of the MOCO projects (both children and adults)
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lme4)
+library(knitr)
+library(psyphy)
+library(sjPlot)
+# if (!("pacman" %in% installed.packages()[,])) {
+#     install.packages("pacman")
+#   }
+# library(pacman)
+# pacman::p_load(dplyr, ggplot2, knitr, psyphy, lme4, sjPlot)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r ggplot-themes}
+theme.custom <- theme(plot.title = element_text(size=16, face="bold"),
+                      axis.title.x = element_text(size=14),
+                      axis.title.y = element_text(size=14),
+                      strip.text = element_text(size=14),
+                      axis.text = element_text(size=11),
+                      legend.position="bottom", 
+                      legend.title=element_blank(),
+                      legend.text=element_text(size=11))
 ```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
-
-# Load libraries
-library(dplyr)
-library(ggplot2)
 
 ## Import aggregate data
 
@@ -122,26 +119,29 @@ p <- p +
   xlim(0, 1)
 p 
 ```
+
 #Generalized linear mixed effects model with a probit link/ weiboll model.
 # Yij = B0j+B1j*PatternTypeij+B2j*Speedij+B3j*Cohij+eij
+$Y_{i,j}=B_{0j} + B_{1j}+PatternType_{ij}$
 # Boj = r00+r01AgeYrsj+r02Genderj+u0j
 # B1j = r10+u1j
 # B2j = r20+u2j
 # B3j = r30+u3j 
-library(lme4)
 # Accuracy 
 # probit link function
 # Empty model
+
 ```{r probit-empty, eval=FALSE}
 form.empty <- df$Acc~(1|df$SubID)
 model.empty <- glmer(formula = form.empty, family=binomial(mafc.probit(2)), data = df)
-```
-```{r summary.full.model, eval=FALSE}
 summary(model.empty)
 ```
+
+
 ```{r ICC-Acc, eval=FALSE}
 ICC_Acc <- 0.1289/(0.1289+0.8074)
 ```
+
 I can write a function to calculate ICC
 ICC is small (14%)
 
@@ -149,10 +149,9 @@ ICC is small (14%)
 ```{r probit-full, eval=FALSE}
 form.full <- Acc ~ Coh + Speed + PatternType + (1|SubID)
 model.full <- glmer(formula = form.full, family=binomial(mafc.probit(2)), data = df)
-```
-```{r summary.full, eval=FALSE}
 summary(model.full)
 ```
+
 AIC 5753
 
 # full model with random intercept and random slope
@@ -161,29 +160,44 @@ model.full.slope1<- Acc ~ Coh + Speed + PatternType + (1+Gender|SubID)
 model.full.slope1<- glmer(formula = model.full.slope1, family=binomial(mafc.probit(2)), data = df)
 summary(model.full.slope1)
 ```
+
 AIC 5757
+
 ```{r probit-random-slope-AgeYrs, eval=FALSE}
 form.slope2 <- Acc ~ Coh + Speed + PatternType + (1+Age|SubID)
 model.slope2 <- glmer(formula = form.slope2, family=binomial(mafc.probit(2)), data = df)
 summary(model.slope2)
 ```
+
 AIC 5767
+
 AIC does not decrease in the random slope model
+
 # interaction
 ```{r probit-interaction, eval=FALSE}
 form.full.interaction<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
 model.full.interaction <- glmer(formula = form.full.interaction, family=binomial(mafc.probit(2)), data = df)
 summary(model.full.interaction)
 ```
+
 model failed to converge
+
+```{r}
 # bumped up max number of iterations.
 ss <- getME(model.full.interaction,c("theta","fixef"))
 m2 <- update(model.full.interaction,start=ss,control=glmerControl(optCtrl=list(maxfun=2e4)))
+```
+
 # still failed,  Try a different optimizer
+
+```{r}
 m3 <- update(model.full.interaction,start=ss,control=glmerControl(optimizer="bobyqa",
                             optCtrl=list(maxfun=2e5)))
 summary(m3)
+```
+
 # AIC 5735, better model fit
+
 ```{r Acc-coef-plot, include=TRUE}
 #ranef(model.full,confVar=T)
 #A generic function to extract the conditional modes of the random effects from a fitted model object.
@@ -200,14 +214,23 @@ for(i in 1:30) {
 abline(a=coef(m3)$SubID[i,1],b=coef(m3)$SubID[i,2])
 }
 ```
+
 # logit link function
+
 ```{r logit-interaction, eval=FALSE}
 form.logit.interaction<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
 model.logit.interaction <- glmer(formula = form.logit.interaction, family=binomial(link="logit"), data = df)
 summary(model.logit.interaction)
 ```
-wald.test(b = coef(model.logit.interaction), Sigma = vcov(model.logit.interaction), Terms = 4:6)
 #AIC 5732, smaller AIC
+<!-- wald.test(b = coef(model.logit.interaction), Sigma = vcov(model.logit.interaction), Terms = 4:6) -->
+
+odd<-predict(model.logit.interaction,data.frame(Acc=c(, , ,)))
+log_odds<-predict(model.logit.interaction,data.frame(b0*Coh + Speed + PatternType + Coh*Speed*PatternType)=c(0.25,0.5,0.75)))
+exp(lodds)/(1+exp(lodds))
+
+# get the exact 95% confidence interval for the coefficients b
+exp(confint(model.logit.interaction))
 
 ```{r cloglog-interaction, eval=FALSE}
 form.cloglog.interaction<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
@@ -228,7 +251,12 @@ library(VGAM)
 form.weibull.interaction<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
 model.weibull.interaction <- vglm(formula = form.weibull.interaction, family = weibull(link='log'), data = df)
 summary(model.weibull.interaction)
+# let me test
 ```
+
+## ANOVA
+anova(model.logit.interaction)
+qchisq(0.95,1) # get the threshold of this percentile
 
 # RT
 # Empty model
@@ -249,8 +277,6 @@ AIC 4920
 ```{r rt-gaussian, eval=FALSE}
 form.full.rt <- RT ~ Coh + Speed + PatternType + (1|SubID)
 model.full.rt <- lmer(formula = form.full.rt,  data = df, REML=FALSE)
-```
-```{r summary.full, eval=FALSE}
 summary(model.full.rt)
 ```
 AIC 30918
@@ -281,6 +307,7 @@ summary(model.slope2)
 ```
 AIC 30927
 AIC does not decrease in the random slope model
+
 # interaction
 ```{r probit-interaction, eval=FALSE}
 form.full.interaction<- RT ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
@@ -323,9 +350,6 @@ summary(model.logit.interaction)
 
 
 
-
-
-
 ## group analysis (ANOVA)
 # Acc
 # Plot of speed across patterns by age
@@ -353,6 +377,7 @@ p6 <-
   geom_hline(yintercept=0.5, linetype="dashed")
 p6
 ```
+
 # Plot of coherence by pattern across age
 
 ```{r p-corr-by-pattern-and-age-plot, include=TRUE}
@@ -424,10 +449,6 @@ p.rt <-
   theme.custom
 p.rt
 ```
-
-
-
-
 
 
 ## threshold 
