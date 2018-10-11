@@ -33,7 +33,7 @@ theme.custom <- theme(plot.title = element_text(size=16, face="bold"),
 
 ## Import aggregate data
 
-Here we import the aggregate data file found in `analyses/data-aggregate/moco-beh-child.csv`, convert `AgeDays` to a categorical factor, `AgeYrs` (norminal) and 'Age' (ordinal), convert gender into 1 (female) and 2 (male), and compute some summary statistics across trial and block. These summary values are saved to the  `df.bysub.bycond` data frame.In these two dataset, the NaN of Acc is fixed but the outliers are not cleaned up.
+Here we import the aggregate data file found in `analyses/data-aggregate/moco-beh-child.csv`, convert `AgeDays` to a categorical factor, `AgeYrs` (norminal) and 'Age' (ordinal), convert gender into 1 (female) and 2 (male). In this dataset, the NaN of Acc is fixed but the outliers are not cleaned up.
 
 ```{r import-data}
 # Import child MOCO data, normalize
@@ -54,18 +54,6 @@ df$Age <- ordered(cut(df$AgeDays/365.25,
 # Convert gender into dummy
 df$Sex<-as.numeric(as.factor(df$Gender)) # Male 2, Female 1
 
-df %>% 
-  group_by(AgeYrs, Gender, AgeDays, SubID, PatternType, Speed, Coh) %>% 
-  summarize(N.corr = sum(Acc), 
-            N.tot = n(), 
-            Pct.Corr = N.corr/N.tot,
-            RT.mean=mean(RT),
-            RT.sd=sd(RT)) -> 
-  df.bysub.bycond
-
-# read the first 6 rows of this data
-head(df.bysub.bycond)
-
 ```
 ## Clean the data
 
@@ -75,12 +63,13 @@ Here we clean up the data in the trials level.
 # plot the outliner 
 boxplot(RT ~ SubID, data=df, main="the boxplot of reaction time for each subject")
 foo <- boxplot(RT ~ SubID, data=df, main="the boxplot of reaction time for each subject")
-# from this boxplot, we can see two subject has larger variance than the other. (Shall we include these two subjects?)
+# from this boxplot, we can see subject 1076 has larger variance than the other. (Shall we exclude data of this subject?)
 ```
 
-```{r clean-up-data}
+```{r clean-up-data-trial-level}
 # Clean the outliers, the observations that lie outside 3SD (2 cases: very long RT with accurate/inaccurate response; solution 1: remove the case, solution 2: Imputation with mean / median / mode, solution 3 prediction: http://r-statistics.co/Missing-Value-Treatment-With-R.html#4.%20Prediction; Is 0.01 a good criterion?)
-remove_outliers<- function(x, na.rm = TRUE, ...) {
+# method 1: remove the 1% quantile outliers
+outliersQ<- function(x, na.rm = TRUE, ...) {
   qnt <- quantile(x, probs=c(.01, .99), na.rm = na.rm, ...)
   y <- x
   y[x < qnt[1] ] <- NA
@@ -89,22 +78,71 @@ remove_outliers<- function(x, na.rm = TRUE, ...) {
 }
 df_clean <- df %>%
   group_by(SubID) %>%
-  mutate(RT = remove_outliers(RT))
-boxplot(RT ~ SubID, data=df_clean, main="the boxplot of reaction time for each subject")
-
-# In the previous aggregation, no response trials are treated as "False" response and RT is 0. Revalue this RT
-df_clean$RT[df_clean$RT==0 & isFALSE(df_clean$Acc)] <- NA
-boxplot(RT ~ SubID, data=df_clean, main="the boxplot of reaction time for each subject")
+  mutate(RT = outliersQ(RT))
+boxplot(RT ~ SubID, data=df_clean, main="the boxplot of reaction time for each subject cleaned by quantile")
+# method 2: remove the outliers by z score (3 standard deviation from mean)
+outliersZ <- function(x, cutoff) {
+    #compute standard deviation (sample version n = n [not n-1])
+    y<-x
+    stdev <- sqrt(sum((x - mean(x, na.rm = T))^2, na.rm = T) / sum(!is.na(x)))
+    y[abs(x - mean(x, na.rm = T)) > cutoff*stdev ] <- NA
+    y
+}
+df.clean <- df %>%
+  group_by(SubID) %>%
+  mutate(RT = outliersZ(RT,3))
+boxplot(RT ~ SubID, data=df.clean, main="the boxplot of reaction time for each subject cleaned by zscore")
 ```
-# subject-level cleaning ?
-# normalize the data ?
 
-## the multilevel model
-Generalized linear mixed effects model 
-The level 1 (i) is accuracy or RT in each condition for each subject. The level 2 (j) is each subject. The random effects in this model are SubID, Gender and AgeYrs. Fixed effects are Speed, PatternType, Coh, and their interaction
+```{r cleaning-zero-value}
+# In the previous aggregation, no response trials are treated as "False" response and RT is 0. Revalue this RT
+df2<-df.clean
+df2$RT[which(df.clean$RT==0 & df.clean$Acc==FALSE)] <- NA
+# all RT of zero value is included (showed by boxplot) 
+boxplot(RT ~ SubID, data=df2, main="the boxplot of cleaned reaction time for each subject")
+```
+## subject-level cleaning 
+
+Let's check the plot of df2 for each subject by computing some summary statistics across trial and block. These summary values are saved to the  `df.bysub.bycond` data frame.
+
+```{r summary-data}
+# summary statistics of df2
+df2 %>% 
+  group_by(AgeYrs, Gender, Age, SubID, PatternType, Speed, Coh) %>% 
+  summarize(N.corr = sum(Acc), 
+            N.tot = n(), 
+            Pct.Corr = N.corr/N.tot,
+            RT.mean=mean(RT),
+            RT.sd=sd(RT)) -> 
+  df.bysub.bycond
+# read the first 6 rows of this data
+head(df.bysub.bycond)
+```
+# plot of *p*(Corr) by subj
+p.acc.mean <-q <- data.frame(
+  x   = seq(1, 100, 1),
+  ts1 = sample(1:100),
+  ts2 = sample(1:100))
+
+q$mean <- apply(df.bysub.bycond, SubID, function(row) mean(row[-1]))
+q$sd   <- apply(q, SubID, function(row) sd(row[-1]))
+
+eb <- aes(ymax = mean + sd, ymin = mean - sd)
+ggplot(data = q, aes(x = x, y = mean)) + 
+  geom_line(size = 2) + 
+  geom_ribbon(eb, alpha = 0.5) ggplot(data=df.bysub.bycond, aes(x=Coh, y=Pct.Corr)) +
+    geom_line(data = df.bysub.bycond, aes(gp, y)) +
+    geom_point(data = ds, aes(gp, mean), colour = 'red', size = 3) +
+    geom_errorbar(
+    data = ds,
+    aes(gp, mean, ymin = mean - sd, ymax = mean + sd),
+    colour = 'red',
+    width = 0.4
+  )
+q$mean <- apply(q, 1, function(row) mean(row[-1]))
+q$sd   <- apply(q, 1, function(row) sd(row[-1]))
 
 # Plot of *p*(corr) by condition
-
 ```{r p-corr-pattern-speed-plot, include=TRUE}
   # Plot theme, customizations
 
@@ -114,15 +152,26 @@ df.bysub.bycond$Speed <- factor(df.bysub.bycond$Speed, labels = c("2 deg/s", "8 
 
 # Plot for all subs
 p <- ggplot(data=df.bysub.bycond, aes(x=Coh, y=Pct.Corr)) 
+p2 <- 
+xHigh <- Coh
+yHigh <- y + abs(rnorm(10,sd=3))
+xLow <- Coh
+yLow <- y - abs(rnorm(10,sd=3))
+p2 <- ggplot(df_ring, aes(x= timeNumeric, y= mean_ring)) + 
+       geom_line() + geom_point() + 
+       geom_errorbar(aes(ymin = mean_ring-sd_ring, ymax= mean_ring + sd_ring), 
+         width=.2, position=position_dodge(0.05))
+p3 <-arrows(xHigh,yHigh,xLow,yLow,col=2,angle=90,length=0.1,code=3)
 p <- p + 
   geom_line(aes(group=SubID, color=AgeYrs)) +
   facet_grid(facets = Speed ~ PatternType) +
   labs(x="Coherence", y=y_lbl) +
-  #ggtitle(title_text) +
+  ggtitle(title_text) +
   theme_bw() +
   theme.custom +
   xlim(0, 1) +
-  geom_hline(yintercept=0.5, linetype="dashed")
+  geom_hline(yintercept=0.5, linetype="dashed") +
+  p2
 p
 ```
 
@@ -145,6 +194,10 @@ p <- p +
   xlim(0, 1)
 p 
 ```
+## the multilevel model
+Generalized linear mixed effects model 
+The level 1 (i) is accuracy or RT in each condition for each subject. The level 2 (j) is each subject. The random effects in this model are SubID, Gender and AgeYrs. Fixed effects are Speed, PatternType, Coh, and their interaction
+
 
 #Generalized linear mixed effects model with a probit link/ weiboll model.
 # Yij = B0j+B1j*PatternTypeij+B2j*Speedij+B3j*Cohij+eij
