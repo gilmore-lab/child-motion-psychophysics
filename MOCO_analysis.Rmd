@@ -222,8 +222,11 @@ form.logit.interaction<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType
 model.logit.interaction <- glmer(formula = form.logit.interaction, family=binomial(link="logit"), data = df)
 summary(model.logit.interaction)
 ```
-#AIC 5732, smaller AIC
+<<<<<<< HEAD
+=======
+
 <!-- wald.test(b = coef(model.logit.interaction), Sigma = vcov(model.logit.interaction), Terms = 4:6) -->
+#AIC 5732, smaller AIC
 
 odd<-predict(model.logit.interaction,data.frame(Acc=c(, , ,)))
 log_odds<-predict(model.logit.interaction,data.frame(b0*Coh + Speed + PatternType + Coh*Speed*PatternType)=c(0.25,0.5,0.75)))
