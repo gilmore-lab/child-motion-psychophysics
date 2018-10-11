@@ -33,7 +33,7 @@ theme.custom <- theme(plot.title = element_text(size=16, face="bold"),
 
 ## Import aggregate data
 
-Here we import the aggregate data file found in `analyses/data-aggregate/moco-beh-child.csv`, convert `AgeDays` to a categorical factor, `AgeYrs`, and compute some summary statistics across trial and block. These summary values are saved to the  `df.bysub.bycond` data frame.In these two dataset, the NaN of Acc is fixed but the outliers are not cleaned up.
+Here we import the aggregate data file found in `analyses/data-aggregate/moco-beh-child.csv`, convert `AgeDays` to a categorical factor, `AgeYrs` (norminal) and 'Age' (ordinal), convert gender into 1 (female) and 2 (male), and compute some summary statistics across trial and block. These summary values are saved to the  `df.bysub.bycond` data frame.In these two dataset, the NaN of Acc is fixed but the outliers are not cleaned up.
 
 ```{r import-data}
 # Import child MOCO data, normalize
@@ -68,10 +68,36 @@ head(df.bysub.bycond)
 
 ```
 ## Clean the data
-```{r clean-up-data}
-# Clean the outliner of RT, such as 0 or 3SD (8s but accurate, what happened?)
-# normalize the data ?
+
+Here we clean up the data in the trials level. 
+
+```{r outlier-boxplot}
+# plot the outliner 
+boxplot(RT ~ SubID, data=df, main="the boxplot of reaction time for each subject")
+foo <- boxplot(RT ~ SubID, data=df, main="the boxplot of reaction time for each subject")
+# from this boxplot, we can see two subject has larger variance than the other. (Shall we include these two subjects?)
 ```
+
+```{r clean-up-data}
+# Clean the outliers, the observations that lie outside 3SD (2 cases: very long RT with accurate/inaccurate response; solution 1: remove the case, solution 2: Imputation with mean / median / mode, solution 3 prediction: http://r-statistics.co/Missing-Value-Treatment-With-R.html#4.%20Prediction; Is 0.01 a good criterion?)
+remove_outliers<- function(x, na.rm = TRUE, ...) {
+  qnt <- quantile(x, probs=c(.01, .99), na.rm = na.rm, ...)
+  y <- x
+  y[x < qnt[1] ] <- NA
+  y[x > qnt[2] ] <- NA
+  y
+}
+df_clean <- df %>%
+  group_by(SubID) %>%
+  mutate(RT = remove_outliers(RT))
+boxplot(RT ~ SubID, data=df_clean, main="the boxplot of reaction time for each subject")
+
+# In the previous aggregation, no response trials are treated as "False" response and RT is 0. Revalue this RT
+df_clean$RT[df_clean$RT==0 & isFALSE(df_clean$Acc)] <- NA
+boxplot(RT ~ SubID, data=df_clean, main="the boxplot of reaction time for each subject")
+```
+# subject-level cleaning ?
+# normalize the data ?
 
 ## the multilevel model
 Generalized linear mixed effects model 
@@ -256,6 +282,9 @@ model.weibull.interaction <- vglm(formula = form.weibull.interaction, family = w
 summary(model.weibull.interaction)
 # let me test
 ```
+outliers<-outlierTest(model, cutoff=0.05, n.max=20, order=TRUE, 
+	labels=names(rstudent), ...)
+# Reports the Bonferroni p-values for testing each observation in turn to be a mean-shift outliner, based Studentized residuals in linear (t-tests) and generalized linear models (normal tests).
 
 ## ANOVA
 anova(model.logit.interaction)
