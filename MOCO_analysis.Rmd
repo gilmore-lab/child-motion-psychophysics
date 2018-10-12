@@ -63,7 +63,7 @@ Here we clean up the data in the trials level.
 # plot the outliner 
 boxplot(RT ~ SubID, data=df, main="the boxplot of reaction time for each subject")
 foo <- boxplot(RT ~ SubID, data=df, main="the boxplot of reaction time for each subject")
-# from this boxplot, we can see subject 1076 has larger variance than the other. (Shall we exclude data of this subject?)
+  # from this boxplot, we can see subject 1076 has larger variance than the other. (Shall we exclude data of this subject?)
 ```
 
 ```{r clean-up-data-trial-level}
@@ -98,7 +98,7 @@ boxplot(RT ~ SubID, data=df.clean, main="the boxplot of reaction time for each s
 # In the previous aggregation, no response trials are treated as "False" response and RT is 0. Revalue this RT
 df2<-df.clean
 df2$RT[which(df.clean$RT==0 & df.clean$Acc==FALSE)] <- NA
-# all RT of zero value is included (showed by boxplot) 
+  # all RT of zero value is included (showed by boxplot) 
 boxplot(RT ~ SubID, data=df2, main="the boxplot of cleaned reaction time for each subject")
 ```
 ## subject-level cleaning 
@@ -106,62 +106,84 @@ boxplot(RT ~ SubID, data=df2, main="the boxplot of cleaned reaction time for eac
 Let's check the plot of df2 for each subject by computing some summary statistics across trial and block. These summary values are saved to the  `df.bysub.bycond` data frame.
 
 ```{r summary-data}
-# summary statistics of df2
+# summary statistics of df2 
+df2 %>% 
+  group_by(AgeYrs, Gender, SubID, Coh) %>% 
+  summarize(N.corr = sum(Acc), 
+            N.tot = n(), 
+            Pct.Corr = N.corr/N.tot,
+            RT.mean=mean(RT, na.rm = T),
+            RT.sd=sd(RT, na.rm = T)) -> 
+  df.summary
+head(df.summary)
+# summary statistics of df2 by condition
 df2 %>% 
   group_by(AgeYrs, Gender, Age, SubID, PatternType, Speed, Coh) %>% 
   summarize(N.corr = sum(Acc), 
             N.tot = n(), 
             Pct.Corr = N.corr/N.tot,
-            RT.mean=mean(RT),
-            RT.sd=sd(RT)) -> 
+            RT.mean=mean(RT, na.rm = T),
+            RT.sd=sd(RT, na.rm = T)) -> 
   df.bysub.bycond
 # read the first 6 rows of this data
 head(df.bysub.bycond)
 ```
 # plot of *p*(Corr) by subj
-p.acc.mean <-q <- data.frame(
-  x   = seq(1, 100, 1),
-  ts1 = sample(1:100),
-  ts2 = sample(1:100))
+```{r p-corr-subj-mean-plot}
+# Plot theme, customizations
+library(plyr)
+y_lbl <- 'p(corr)'
+title_text <- 'p(corr) by subj'
 
-q$mean <- apply(df.bysub.bycond, SubID, function(row) mean(row[-1]))
-q$sd   <- apply(q, SubID, function(row) sd(row[-1]))
+# lines for each subj
+p1 <- ggplot(df.summary, aes(Coh, Pct.Corr)) +
+  geom_line(aes(group=SubID, color=AgeYrs)) +
+  labs(x="Coherence", y=y_lbl) +
+  ggtitle(title_text) +
+  theme_bw() +
+  theme.custom +
+  xlim(0, 1) +
+  geom_hline(yintercept=0.5, linetype="dashed") 
 
-eb <- aes(ymax = mean + sd, ymin = mean - sd)
-ggplot(data = q, aes(x = x, y = mean)) + 
-  geom_line(size = 2) + 
-  geom_ribbon(eb, alpha = 0.5) ggplot(data=df.bysub.bycond, aes(x=Coh, y=Pct.Corr)) +
-    geom_line(data = df.bysub.bycond, aes(gp, y)) +
-    geom_point(data = ds, aes(gp, mean), colour = 'red', size = 3) +
-    geom_errorbar(
-    data = ds,
-    aes(gp, mean, ymin = mean - sd, ymax = mean + sd),
-    colour = 'red',
-    width = 0.4
-  )
-q$mean <- apply(q, 1, function(row) mean(row[-1]))
-q$sd   <- apply(q, 1, function(row) sd(row[-1]))
+s<- ddply(df.summary, ~Coh, summarize,  pcorr_mean=mean(Pct.Corr),pcorr_sd=sd(Pct.Corr))
+  # data[,list(mean=mean(y),sd=sd(y)),by=group]
+  # do not work well in function
+sd = 2
+s$Lower_Bound <- s$pcorr_mean-sd*s$pcorr_sd
+s$Upper_Bound <- s$pcorr_mean+sd*s$pcorr_sd
+data$Lower_Bound <- s$Lower_Bound[match(data$Coh, Lower_Bound$Coh)]
+data$Upper_Bound <- s$Upper_Bound[match(data$x, Upper_Bound$x)]
+data$mean<- s$pcorr_mean[match(data$x, pcorr_mean$x)]
+# confidence band
+p1 <- p1 + 
+  geom_line(data, aes(x, mean), size = 2) +
+  geom_ribbon(aes(ymin = Lower_Bound, ymax =  Upper_Bound), fill = "grey70",
+                alpha=0.5)       #transparency
+
+p1
+}
+
+plotribbon(data=df.summary, group=Coh, y=Pct.Corr, y_lbl, title_text, 1)
+ # I can try stat_smooth function next time
+```  
 
 # Plot of *p*(corr) by condition
 ```{r p-corr-pattern-speed-plot, include=TRUE}
-  # Plot theme, customizations
 
-y_lbl <- 'p(corr)'
 title_text <- 'p(corr) by Coherence, Pattern, and Speed'
 df.bysub.bycond$Speed <- factor(df.bysub.bycond$Speed, labels = c("2 deg/s", "8 deg/s"))
-
 # Plot for all subs
 p <- ggplot(data=df.bysub.bycond, aes(x=Coh, y=Pct.Corr)) 
-p2 <- 
-xHigh <- Coh
-yHigh <- y + abs(rnorm(10,sd=3))
-xLow <- Coh
-yLow <- y - abs(rnorm(10,sd=3))
-p2 <- ggplot(df_ring, aes(x= timeNumeric, y= mean_ring)) + 
-       geom_line() + geom_point() + 
-       geom_errorbar(aes(ymin = mean_ring-sd_ring, ymax= mean_ring + sd_ring), 
-         width=.2, position=position_dodge(0.05))
-p3 <-arrows(xHigh,yHigh,xLow,yLow,col=2,angle=90,length=0.1,code=3)
+# p2 <- 
+# xHigh <- Coh
+# yHigh <- y + abs(rnorm(10,sd=3))
+# xLow <- Coh
+# yLow <- y - abs(rnorm(10,sd=3))
+# p2 <- ggplot(df_ring, aes(x= timeNumeric, y= mean_ring)) + 
+#        geom_line() + geom_point() + 
+#        geom_errorbar(aes(ymin = mean_ring-sd_ring, ymax= mean_ring + sd_ring), 
+#          width=.2, position=position_dodge(0.05))
+# p3 <-arrows(xHigh,yHigh,xLow,yLow,col=2,angle=90,length=0.1,code=3)
 p <- p + 
   geom_line(aes(group=SubID, color=AgeYrs)) +
   facet_grid(facets = Speed ~ PatternType) +
@@ -170,8 +192,7 @@ p <- p +
   theme_bw() +
   theme.custom +
   xlim(0, 1) +
-  geom_hline(yintercept=0.5, linetype="dashed") +
-  p2
+  geom_hline(yintercept=0.5, linetype="dashed") 
 p
 ```
 
