@@ -13,6 +13,9 @@ library(lme4)
 library(knitr)
 library(psyphy)
 library(sjPlot)
+library(dplyr)
+library(lme4)
+library(ggplot2)
 # if (!("pacman" %in% installed.packages()[,])) {
 #     install.packages("pacman")
 #   }
@@ -39,20 +42,22 @@ Here we import the aggregate data file found in `analyses/data-aggregate/moco-be
 # Import child MOCO data, normalize
 df <- read.csv(file = "analyses/data-aggregate/moco-beh-child.csv", header = TRUE)
 
-# read the first 6 rows of the data
-head(df)
 
 # Convert age in days to years
-df$AgeYrs <- ordered(cut(df$AgeDays/365.25, 
-                 breaks = c(0,5,6,7,8,9), 
-                 labels = c("<5yo", "5yo", "6yo", "7yo", "8yo")))
 which(df$AgeDays< 5*365.25) # there is no child younger than 5 yrs
+df$AgeYrs <- ordered(cut(df$AgeDays/365.25, 
+                 breaks = c(5,6,7,8,9), 
+                 labels = c("5yo", "6yo", "7yo", "8yo")))
+
 df$Age <- ordered(cut(df$AgeDays/365.25, 
                  breaks = c(5,6,7,8,9), 
                  labels = c("5", "6", "7", "8")))
 
 # Convert gender into dummy
 df$Sex<-as.numeric(as.factor(df$Gender)) # Male 2, Female 1
+
+# read the first 6 rows of the data
+head(df)
 
 ```
 ## Clean the data
@@ -115,6 +120,13 @@ df2 %>%
             RT.mean=mean(RT, na.rm = T),
             RT.sd=sd(RT, na.rm = T)) -> 
   df.summary
+
+# df.summary %>% 
+#   group_by(Coh) %>% 
+#   mutate(pcorr.mean=mean(Pct.Corr, na.rm = T),
+#         pcorr.sd=sd(Pct.Corr, na.rm = T)) %>%
+#   ungroup() 
+
 head(df.summary)
 # summary statistics of df2 by condition
 df2 %>% 
@@ -148,23 +160,26 @@ p1 <- ggplot(df.summary, aes(Coh, Pct.Corr)) +
 s<- ddply(df.summary, ~Coh, summarize,  pcorr_mean=mean(Pct.Corr),pcorr_sd=sd(Pct.Corr))
   # data[,list(mean=mean(y),sd=sd(y)),by=group]
   # do not work well in function
-sd = 2
+sd = 1
 s$Lower_Bound <- s$pcorr_mean-sd*s$pcorr_sd
 s$Upper_Bound <- s$pcorr_mean+sd*s$pcorr_sd
-data$Lower_Bound <- s$Lower_Bound[match(data$Coh, Lower_Bound$Coh)]
-data$Upper_Bound <- s$Upper_Bound[match(data$x, Upper_Bound$x)]
-data$mean<- s$pcorr_mean[match(data$x, pcorr_mean$x)]
+# df.summary$lower_Bound <- df.summary %>%
+                          group_by(Coh) %>%
+                          mutate(Lower_Bound = s$Lower_Bound)
+df.summary$upper_Bound <- s$Upper_Bound[match(df.summary$Coh, df.summary$Coh)]
+df.summary$lower_bound <- s$Lower_Bound[match(df.summary$Coh, df.summary$Coh)]
+df.summary$pcorr.mean <- s$Upper_Bound[match(df.summary$Coh, df.summary$Coh)]
+   # Bad_Data$Lower_Bound <- Lower_Bound$C[match(Bad_Data$Q, Lower_Bound$Q)]
+    # Bad_Data$Upper_Bound <- Upper_Bound$C[match(Bad_Data$Q, Upper_Bound$Q)]
 # confidence band
 p1 <- p1 + 
-  geom_line(data, aes(x, mean), size = 2) +
-  geom_ribbon(aes(ymin = Lower_Bound, ymax =  Upper_Bound), fill = "grey70",
+  geom_line(aes(Coh, pcorr.mean), size = 2) +
+  geom_ribbon(aes(ymin = lower_Bound, ymax =  upper_Bound), fill = "grey70",
                 alpha=0.5)       #transparency
 
 p1
-}
 
-plotribbon(data=df.summary, group=Coh, y=Pct.Corr, y_lbl, title_text, 1)
- # I can try stat_smooth function next time
+ # I can try geom_smooth function next time
 ```  
 
 # Plot of *p*(corr) by condition
