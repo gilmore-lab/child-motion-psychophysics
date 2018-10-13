@@ -121,11 +121,12 @@ df2 %>%
             RT.sd=sd(RT, na.rm = T)) -> 
   df.summary
 
-# df.summary %>% 
-#   group_by(Coh) %>% 
-#   mutate(pcorr.mean=mean(Pct.Corr, na.rm = T),
-#         pcorr.sd=sd(Pct.Corr, na.rm = T)) %>%
-#   ungroup() 
+df.summary <- df.summary %>%
+  group_by(Coh) %>%
+  mutate(pcorr.mean=mean(Pct.Corr),
+         pcorr.sd=sd(Pct.Corr),
+         RT.mean.mean=mean(RT.mean),
+         RT.mean.sd=sd(RT.mean))
 
 head(df.summary)
 # summary statistics of df2 by condition
@@ -137,13 +138,18 @@ df2 %>%
             RT.mean=mean(RT, na.rm = T),
             RT.sd=sd(RT, na.rm = T)) -> 
   df.bysub.bycond
+df.bysub.bycond <- df.bysub.bycond %>%
+  group_by(PatternType,Speed,Coh) %>%
+  mutate(pcorr.mean=mean(Pct.Corr),
+         pcorr.sd=sd(Pct.Corr),
+         RT.mean.mean=mean(RT.mean),
+         RT.mean.sd=sd(RT.mean) )
 # read the first 6 rows of this data
 head(df.bysub.bycond)
 ```
 # plot of *p*(Corr) by subj
 ```{r p-corr-subj-mean-plot}
 # Plot theme, customizations
-library(plyr)
 y_lbl <- 'p(corr)'
 title_text <- 'p(corr) by subj'
 
@@ -157,49 +163,67 @@ p1 <- ggplot(df.summary, aes(Coh, Pct.Corr)) +
   xlim(0, 1) +
   geom_hline(yintercept=0.5, linetype="dashed") 
 
-s<- ddply(df.summary, ~Coh, summarize,  pcorr_mean=mean(Pct.Corr),pcorr_sd=sd(Pct.Corr))
-  # data[,list(mean=mean(y),sd=sd(y)),by=group]
-  # do not work well in function
-sd = 1
-s$Lower_Bound <- s$pcorr_mean-sd*s$pcorr_sd
-s$Upper_Bound <- s$pcorr_mean+sd*s$pcorr_sd
-# df.summary$lower_Bound <- df.summary %>%
-                          group_by(Coh) %>%
-                          mutate(Lower_Bound = s$Lower_Bound)
-df.summary$upper_Bound <- s$Upper_Bound[match(df.summary$Coh, df.summary$Coh)]
-df.summary$lower_bound <- s$Lower_Bound[match(df.summary$Coh, df.summary$Coh)]
-df.summary$pcorr.mean <- s$Upper_Bound[match(df.summary$Coh, df.summary$Coh)]
-   # Bad_Data$Lower_Bound <- Lower_Bound$C[match(Bad_Data$Q, Lower_Bound$Q)]
-    # Bad_Data$Upper_Bound <- Upper_Bound$C[match(Bad_Data$Q, Upper_Bound$Q)]
+
+sd = 3
+df.summary <- df.summary %>%
+  group_by(Coh) %>%
+  mutate(pcorr.lower_bound = pcorr.mean-sd*pcorr.sd,pcorr.upper_bound=pcorr.mean+sd*pcorr.sd)
+
 # confidence band
 p1 <- p1 + 
   geom_line(aes(Coh, pcorr.mean), size = 2) +
-  geom_ribbon(aes(ymin = lower_Bound, ymax =  upper_Bound), fill = "grey70",
+  geom_ribbon(aes(ymin = pcorr.lower_bound, ymax =pcorr.upper_bound), fill = "grey70",
                 alpha=0.5)       #transparency
 
 p1
 
  # I can try geom_smooth function next time
+# from the plot, we can see the accuracy of subj 1088 has significantly below average of the sample group.
 ```  
+# plot of RT by subj
+```{r RT-subj-mean-plot}
+# Plot theme, customizations
+y_lbl <- 'RT'
+title_text <- 'RT by subj'
+
+# lines for each subj
+p2 <- ggplot(df.summary, aes(Coh, RT.mean)) +
+  geom_line(aes(group=SubID, color=AgeYrs)) +
+  labs(x="Coherence", y=y_lbl) +
+  ggtitle(title_text) +
+  theme_bw() +
+  theme.custom +
+  xlim(0, 1) +
+  geom_hline(yintercept=0.5, linetype="dashed") 
+
+
+sd = 3
+df.summary <- df.summary %>%
+  group_by(Coh) %>%
+  mutate(RT.lower_bound = RT.mean.mean-sd*RT.mean.sd,RT.upper_bound=RT.mean.mean+sd*RT.mean.sd)
+
+# confidence band
+p2 <- p2 + 
+  geom_line(aes(Coh, RT.mean.mean), size = 2) +
+  geom_ribbon(aes(ymin = RT.lower_bound, ymax =RT.upper_bound), fill = "grey70",
+                alpha=0.5)       #transparency
+
+p2
+```
 
 # Plot of *p*(corr) by condition
 ```{r p-corr-pattern-speed-plot, include=TRUE}
 
 title_text <- 'p(corr) by Coherence, Pattern, and Speed'
 df.bysub.bycond$Speed <- factor(df.bysub.bycond$Speed, labels = c("2 deg/s", "8 deg/s"))
+
+sd = 3
+df.bysub.bycond <- df.bysub.bycond %>%
+  group_by(PatternType, Speed,Coh) %>%
+  mutate(lower_bound = pcorr.mean-sd*pcorr.sd,upper_bound=pcorr.mean+sd*pcorr.sd)
 # Plot for all subs
-p <- ggplot(data=df.bysub.bycond, aes(x=Coh, y=Pct.Corr)) 
-# p2 <- 
-# xHigh <- Coh
-# yHigh <- y + abs(rnorm(10,sd=3))
-# xLow <- Coh
-# yLow <- y - abs(rnorm(10,sd=3))
-# p2 <- ggplot(df_ring, aes(x= timeNumeric, y= mean_ring)) + 
-#        geom_line() + geom_point() + 
-#        geom_errorbar(aes(ymin = mean_ring-sd_ring, ymax= mean_ring + sd_ring), 
-#          width=.2, position=position_dodge(0.05))
-# p3 <-arrows(xHigh,yHigh,xLow,yLow,col=2,angle=90,length=0.1,code=3)
-p <- p + 
+p.corr <- ggplot(data=df.bysub.bycond, aes(x=Coh, y=Pct.Corr)) 
+p.corr <- p.corr + 
   geom_line(aes(group=SubID, color=AgeYrs)) +
   facet_grid(facets = Speed ~ PatternType) +
   labs(x="Coherence", y=y_lbl) +
@@ -208,19 +232,30 @@ p <- p +
   theme.custom +
   xlim(0, 1) +
   geom_hline(yintercept=0.5, linetype="dashed") 
-p
+# confidence band
+p.corr <- p.corr + 
+  geom_line(aes(Coh, pcorr.mean), size = 2) +
+  geom_ribbon(aes(ymin = lower_bound, ymax =upper_bound), fill = "grey70",
+                alpha=0.5) 
+p.corr
+# we can see the small variance at the coherence level of .20, .40, .80 for small sample size. In radial condition, one subj (1088) is deviant in speed of 2 deg/s.
 ```
 
-# Plot of reaction time
+# Plot of reaction time by condition
 
 ```{r rt-pattern-speed-plot, include=TRUE}
 # Plot RTs
 y_lbl <- 'RT (s)'
 title_text <- 'RT by Coherence, Pattern, and Speed'
 
+sd = 3
+df.bysub.bycond <- df.bysub.bycond %>%
+  group_by(PatternType, Speed,Coh) %>%
+  mutate(lower_bound = RT.mean.mean-sd*RT.mean.sd,upper_bound=RT.mean.mean+sd*RT.mean.sd)
+
 # Plot for all subs
-p <- ggplot(data=df.bysub.bycond, aes(x=Coh, y=RT.mean))
-p <- p + 
+p.rt <- ggplot(data=df.bysub.bycond, aes(x=Coh, y=RT.mean))
+p.rt <- p.rt + 
   geom_line(aes(group=SubID, color=AgeYrs)) +
   facet_grid(facets = Speed ~ PatternType) +
   labs(x="Coherence", y=y_lbl) +
@@ -228,7 +263,13 @@ p <- p +
   theme_bw() +
   theme.custom +
   xlim(0, 1)
-p 
+# confidence band
+p.rt <- p.rt + 
+  geom_line(aes(Coh, RT.mean.mean), size = 2) +
+  geom_ribbon(aes(ymin = lower_bound, ymax =upper_bound), fill = "grey70",
+                alpha=0.5) 
+p.rt
+# In condition of speed of 2, there are 2 deviance (one subj 1077 deviant from the mean in both linear condition and radial condition)
 ```
 ## the multilevel model
 Generalized linear mixed effects model 
