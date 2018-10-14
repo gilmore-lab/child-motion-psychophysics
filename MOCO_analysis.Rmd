@@ -14,7 +14,6 @@ library(knitr)
 library(psyphy)
 library(sjPlot)
 library(dplyr)
-library(lme4)
 library(ggplot2)
 # if (!("pacman" %in% installed.packages()[,])) {
 #     install.packages("pacman")
@@ -67,8 +66,14 @@ Here we clean up the data in the trials level.
 ```{r outlier-boxplot}
 # plot the outliner 
 boxplot(RT ~ SubID, data=df, main="the boxplot of reaction time for each subject")
-foo <- boxplot(RT ~ SubID, data=df, main="the boxplot of reaction time for each subject")
   # from this boxplot, we can see subject 1076 has larger variance than the other. (Shall we exclude data of this subject?)
+```
+```{r cleaning-zero-value}
+# In the previous aggregation, no response trials are treated as "False" response and RT is 0. Revalue this RT
+df2<-df
+df2$RT[which(df$RT==0 & df$Acc==FALSE)] <- NA
+  # all RT of zero value is included (showed by boxplot) 
+boxplot(RT ~ SubID, data=df2, main="the boxplot of cleaned reaction time for each subject")
 ```
 
 ```{r clean-up-data-trial-level}
@@ -81,10 +86,10 @@ outliersQ<- function(x, na.rm = TRUE, ...) {
   y[x > qnt[2] ] <- NA
   y
 }
-df_clean <- df %>%
+df.clean <- df2 %>%
   group_by(SubID) %>%
   mutate(RT = outliersQ(RT))
-boxplot(RT ~ SubID, data=df_clean, main="the boxplot of reaction time for each subject cleaned by quantile")
+boxplot(RT ~ SubID, data=df.clean, main="the boxplot of reaction time for each subject cleaned by quantile")
 # method 2: remove the outliers by z score (3 standard deviation from mean)
 outliersZ <- function(x, cutoff) {
     #compute standard deviation (sample version n = n [not n-1])
@@ -93,19 +98,14 @@ outliersZ <- function(x, cutoff) {
     y[abs(x - mean(x, na.rm = T)) > cutoff*stdev ] <- NA
     y
 }
-df.clean <- df %>%
+df.clean <- df2 %>%
   group_by(SubID) %>%
   mutate(RT = outliersZ(RT,3))
 boxplot(RT ~ SubID, data=df.clean, main="the boxplot of reaction time for each subject cleaned by zscore")
+df2<-df.clean
+## The fifth subject (subj 1077) has larger variance of RT than the other subjects.  
 ```
 
-```{r cleaning-zero-value}
-# In the previous aggregation, no response trials are treated as "False" response and RT is 0. Revalue this RT
-df2<-df.clean
-df2$RT[which(df.clean$RT==0 & df.clean$Acc==FALSE)] <- NA
-  # all RT of zero value is included (showed by boxplot) 
-boxplot(RT ~ SubID, data=df2, main="the boxplot of cleaned reaction time for each subject")
-```
 ## subject-level cleaning 
 
 Let's check the plot of df2 for each subject by computing some summary statistics across trial and block. These summary values are saved to the  `df.bysub.bycond` data frame.
@@ -147,7 +147,7 @@ df.bysub.bycond <- df.bysub.bycond %>%
 # read the first 6 rows of this data
 head(df.bysub.bycond)
 ```
-# plot of *p*(Corr) by subj
+### plot of *p*(Corr) by subj
 ```{r p-corr-subj-mean-plot}
 # Plot theme, customizations
 y_lbl <- 'p(corr)'
@@ -163,7 +163,6 @@ p1 <- ggplot(df.summary, aes(Coh, Pct.Corr)) +
   xlim(0, 1) +
   geom_hline(yintercept=0.5, linetype="dashed") 
 
-
 sd = 3
 df.summary <- df.summary %>%
   group_by(Coh) %>%
@@ -176,11 +175,10 @@ p1 <- p1 +
                 alpha=0.5)       #transparency
 
 p1
-
  # I can try geom_smooth function next time
-# from the plot, we can see the accuracy of subj 1088 has significantly below average of the sample group.
+# from the plot, we can see the accuracy of subj 1088 has below average percentage of accuracy. But it is not significant
 ```  
-# plot of RT by subj
+### plot of RT by subj
 ```{r RT-subj-mean-plot}
 # Plot theme, customizations
 y_lbl <- 'RT'
@@ -211,7 +209,7 @@ p2 <- p2 +
 p2
 ```
 
-# Plot of *p*(corr) by condition
+### Plot of *p*(corr) by condition
 ```{r p-corr-pattern-speed-plot, include=TRUE}
 
 title_text <- 'p(corr) by Coherence, Pattern, and Speed'
@@ -238,10 +236,10 @@ p.corr <- p.corr +
   geom_ribbon(aes(ymin = lower_bound, ymax =upper_bound), fill = "grey70",
                 alpha=0.5) 
 p.corr
-# we can see the small variance at the coherence level of .20, .40, .80 for small sample size. In radial condition, one subj (1088) is deviant in speed of 2 deg/s.
+# we can see the small variance at the coherence level of .20, .40, .80 for small sample size. In radial condition, one subj (1088) is deviant in speed of 2 deg/s and 1059 is deviant in speed of 8 deg/s.
 ```
 
-# Plot of reaction time by condition
+### Plot of reaction time by condition
 
 ```{r rt-pattern-speed-plot, include=TRUE}
 # Plot RTs
@@ -271,88 +269,122 @@ p.rt <- p.rt +
 p.rt
 # In condition of speed of 2, there are 2 deviance (one subj 1077 deviant from the mean in both linear condition and radial condition)
 ```
-## the multilevel model
+#Generalized linear mixed effects model with a probit link/ logit link/ weibull model
 Generalized linear mixed effects model 
-The level 1 (i) is accuracy or RT in each condition for each subject. The level 2 (j) is each subject. The random effects in this model are SubID, Gender and AgeYrs. Fixed effects are Speed, PatternType, Coh, and their interaction
+The level 1 (i) is accuracy/RT in each condition for each subject. The level 2 (j) is each subject. The random effects in this model are SubID, Gender and AgeYrs. Fixed effects are Speed, PatternType, Coh, and their interaction
+$Y_{i,j}=B_{0j} + B_{1j}*PatternType_{ij}+B_{2j}*Speed_{ij}+B_{3j}*Coh_{ij}+e_{ij}$
+$B_{0,j} = r_{00}+ r_{01}*AgeYrs_{j}+r_{02}*Gender_{j}+u_{0j}$
+$B_{1,j} = r_{10}+u_{1j}$
+$B_{2j} = r_{20}+u_{2j}$
+$B_{3j} = r_{30}+u_{3j}$
 
-
-#Generalized linear mixed effects model with a probit link/ weiboll model.
-# Yij = B0j+B1j*PatternTypeij+B2j*Speedij+B3j*Cohij+eij
-$Y_{i,j}=B_{0j} + B_{1j}+PatternType_{ij}$
-# Boj = r00+r01AgeYrsj+r02Genderj+u0j
-# B1j = r10+u1j
-# B2j = r20+u2j
-# B3j = r30+u3j 
-# Accuracy 
-# probit link function
-# Empty model
-
+## Accuracy 
+### probit link function
+#### Empty model
 ```{r probit-empty, eval=FALSE}
-form.empty <- df$Acc~(1|df$SubID)
-model.empty <- glmer(formula = form.empty, family=binomial(mafc.probit(2)), data = df)
-summary(model.empty)
+form.empty <- Acc~(1|SubID)
+model.acc.empty <- glmer(formula = form.empty, family=binomial(mafc.probit(2)), data = df2)
+summary(model.acc.empty)
 ```
 
 
 ```{r ICC-Acc, eval=FALSE}
 ICC_Acc <- 0.1289/(0.1289+0.8074)
+The result is the same as the uncleaned one
+
 ```
-
-I can write a function to calculate ICC
 ICC is small (14%)
-
-# full model with random intercept
+#### full model with random intercept
 ```{r probit-full, eval=FALSE}
-form.full <- Acc ~ Coh + Speed + PatternType + (1|SubID)
-model.full <- glmer(formula = form.full, family=binomial(mafc.probit(2)), data = df)
-summary(model.full)
+form.fixed <- Acc ~ Coh + Speed + PatternType + (1|SubID)
+model.acc.fixed <- glmer(formula = form.fixed, family=binomial(mafc.probit(2)), data = df2)
+summary(model.acc.fixed)
 ```
 
 AIC 5753
 
-# full model with random intercept and random slope
+#### full model with random intercept and random slope
 ```{r probit-random-slope-gender, eval=FALSE}
-model.full.slope1<- Acc ~ Coh + Speed + PatternType + (1+Gender|SubID)
-model.full.slope1<- glmer(formula = model.full.slope1, family=binomial(mafc.probit(2)), data = df)
-summary(model.full.slope1)
+model.gender<- Acc ~ Coh + Speed + PatternType + (1+Gender|SubID)
+model.acc.gender<- glmer(formula = model.gender, family=binomial(mafc.probit(2)), data = df2 )
+summary(model.acc.gender)
 ```
 
 AIC 5757
 
 ```{r probit-random-slope-AgeYrs, eval=FALSE}
-form.slope2 <- Acc ~ Coh + Speed + PatternType + (1+Age|SubID)
-model.slope2 <- glmer(formula = form.slope2, family=binomial(mafc.probit(2)), data = df)
-summary(model.slope2)
+form.age <- Acc ~ Coh + Speed + PatternType + (Age+1|SubID)
+model.acc.age <- glmer(formula = form.age, family=binomial(mafc.probit(2)), data = df2)
+summary(model.acc.age)
 ```
 
 AIC 5767
-
 AIC does not decrease in the random slope model
 
 # interaction
 ```{r probit-interaction, eval=FALSE}
-form.full.interaction<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
-model.full.interaction <- glmer(formula = form.full.interaction, family=binomial(mafc.probit(2)), data = df)
-summary(model.full.interaction)
+form.full<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
+model.acc.full <- glmer(formula = form.full, family=binomial(mafc.probit(2)), data = df2)
+summary(model.acc.full)
 ```
 
 model failed to converge
 
-```{r}
 # bumped up max number of iterations.
-ss <- getME(model.full.interaction,c("theta","fixef"))
-m2 <- update(model.full.interaction,start=ss,control=glmerControl(optCtrl=list(maxfun=2e4)))
-```
-
+ ss <- getME(model.acc.full,c("theta","fixef"))
+<!-- m2 <- update(model.acc.full,start=ss,control=glmerControl(optCtrl=list(maxfun=2e4))) -->
 # still failed,  Try a different optimizer
 
-```{r}
-m3 <- update(model.full.interaction,start=ss,control=glmerControl(optimizer="bobyqa",
+```{r find-optimizer}
+model.acc.full.new <- update(model.acc.full,start=ss,control=glmerControl(optimizer="bobyqa",
                             optCtrl=list(maxfun=2e5)))
-summary(m3)
+summary(model.acc.full.new)
+```
+AIC 5735, better model fit
+
+# logit link function
+```{r logit-interaction, eval=FALSE}
+form.acc.logit<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
+model.acc.logit <- glmer(formula = form.acc.logit, family=binomial(mafc.logit(2)), data = df2)
+summary(model.acc.logit)
+# ss <- getME(model.cloglog.interaction,c("theta","fixef"))
+# m2 <- update(model.cloglog.interaction,start=ss,control=glmerControl(optCtrl=list(maxfun=2e4)))
 ```
 
-# AIC 5735, better model fit
+<!-- wald.test(b = coef(model.logit.interaction), Sigma = vcov(model.logit.interaction), Terms = 4:6) -->
+AIC 5715, smaller AIC
+
+```{r cloglog-interaction, eval=FALSE}
+form.acc.cloglog<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
+model.acc.cloglog <- glmer(formula = form.acc.cloglog, family=binomial(mafc.cloglog(2)), data = df2)
+summary(model.acc.cloglog)
+# ss <- getME(model.cloglog.interaction,c("theta","fixef"))
+# m3 <- update(model.cloglog.interaction,start=ss,control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e5)))
+# summary(m3)
+```
+AIC 5768
+
+# Weibull function
+```{r weibull-interaction, eval=FALSE}
+family = mafc.weib( ... )
+# library(VGAM)
+# form.weibull.interaction<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
+# model.weibull.interaction <- vglm(formula = form.weibull.interaction, family = weibull(link='log'), data = df)
+# summary(model.weibull.interaction)
+```
+
+
+outliers<-outlierTest(model, cutoff=0.05, n.max=20, order=TRUE, 
+	labels=names(rstudent), ...)
+# Reports the Bonferroni p-values for testing each observation in turn to be a mean-shift outliner, based Studentized residuals in linear (t-tests) and generalized linear models (normal tests).
+
+
+odd<-predict(model.logit.interaction,data.frame(Acc=c(, , ,)))
+log_odds<-predict(model.logit.interaction,data.frame(b0*Coh + Speed + PatternType + Coh*Speed*PatternType)=c(0.25,0.5,0.75)))
+exp(lodds)/(1+exp(lodds))
+
+# get the exact 95% confidence interval for the coefficients b
+exp(confint(model.logit.interaction))
 
 ```{r Acc-coef-plot, include=TRUE}
 #ranef(model.full,confVar=T)
@@ -371,51 +403,6 @@ abline(a=coef(m3)$SubID[i,1],b=coef(m3)$SubID[i,2])
 }
 ```
 
-# logit link function
-
-```{r logit-interaction, eval=FALSE}
-form.logit.interaction<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
-model.logit.interaction <- glmer(formula = form.logit.interaction, family=binomial(link="logit"), data = df)
-summary(model.logit.interaction)
-```
-<<<<<<< HEAD
-=======
-
-<!-- wald.test(b = coef(model.logit.interaction), Sigma = vcov(model.logit.interaction), Terms = 4:6) -->
-#AIC 5732, smaller AIC
-
-odd<-predict(model.logit.interaction,data.frame(Acc=c(, , ,)))
-log_odds<-predict(model.logit.interaction,data.frame(b0*Coh + Speed + PatternType + Coh*Speed*PatternType)=c(0.25,0.5,0.75)))
-exp(lodds)/(1+exp(lodds))
-
-# get the exact 95% confidence interval for the coefficients b
-exp(confint(model.logit.interaction))
-
-```{r cloglog-interaction, eval=FALSE}
-form.cloglog.interaction<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
-model.cloglog.interaction <- glmer(formula = form.cloglog.interaction, family=binomial(mafc.cloglog(2)), data = df)
-summary(model.cloglog.interaction)
-ss <- getME(model.cloglog.interaction,c("theta","fixef"))
-m2 <- update(model.cloglog.interaction,start=ss,control=glmerControl(optCtrl=list(maxfun=2e4)))
-# still failed,  Try a different optimizer
-m3 <- update(model.cloglog.interaction,start=ss,control=glmerControl(optimizer="bobyqa",
-                            optCtrl=list(maxfun=2e5)))
-summary(m3)
-```
-# AIC 5768
-
-# Weibull function
-```{r weibull-interaction, eval=FALSE}
-library(VGAM)
-form.weibull.interaction<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
-model.weibull.interaction <- vglm(formula = form.weibull.interaction, family = weibull(link='log'), data = df)
-summary(model.weibull.interaction)
-# let me test
-```
-outliers<-outlierTest(model, cutoff=0.05, n.max=20, order=TRUE, 
-	labels=names(rstudent), ...)
-# Reports the Bonferroni p-values for testing each observation in turn to be a mean-shift outliner, based Studentized residuals in linear (t-tests) and generalized linear models (normal tests).
-
 ## ANOVA
 anova(model.logit.interaction)
 qchisq(0.95,1) # get the threshold of this percentile
@@ -424,7 +411,7 @@ qchisq(0.95,1) # get the threshold of this percentile
 # Empty model
 ```{r probit-empty, eval=FALSE}
 form.empty.rt <- df$RT~(1|df$SubID)
-model.empty.rt <- lmer(formula = form.empty, data = df,REML=FALSE)
+model.empty.rt <- lmer(formula = form.empty, data = df,REML=FALSE,na.omit=TRUE)
 ```
 ```{r summary.full.model, eval=FALSE}
 summary(model.empty.rt)
