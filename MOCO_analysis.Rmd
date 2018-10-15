@@ -105,7 +105,6 @@ boxplot(RT ~ SubID, data=df.clean, main="the boxplot of reaction time for each s
 df2<-df.clean
 ## The fifth subject (subj 1077) has larger variance of RT than the other subjects.  
 ```
-
 ## subject-level cleaning 
 
 Let's check the plot of df2 for each subject by computing some summary statistics across trial and block. These summary values are saved to the  `df.bysub.bycond` data frame.
@@ -146,6 +145,18 @@ df.bysub.bycond <- df.bysub.bycond %>%
          RT.mean.sd=sd(RT.mean) )
 # read the first 6 rows of this data
 head(df.bysub.bycond)
+```
+
+```{r rt-norm}
+# the y axis represents the observations and the x axis represents the quantiles modeled by the distribution. The solid line represents a perfect distribution fit and the dashed lines are the confidence intervals of the perfect distribution fit
+qqp(df2$Acc,"norm")
+# lognormal
+qqp(df2$Acc,"lnorm")
+# test normality of RT 
+hist(df2$RT)
+qqPlot(df2$RT)
+qqnorm(df2$RT); qqline(df2$RT)
+shapiro.test(df2$RT)  # From the output, the p-value > 0.05 implying that the distribution of the data are not significantly different from normal distribution. In other words, we can assume the normality.
 ```
 ### plot of *p*(Corr) by subj
 ```{r p-corr-subj-mean-plot}
@@ -366,10 +377,10 @@ anova(model.acc.full1,model.acc.full2)  # better fit
 # model.acc.full.new <- update(model.acc.full,start=ss,control=glmerControl(optimizer="bobyqa",
 #                             optCtrl=list(maxfun=2e5)))
 # summary(model.acc.full.new)
-```
+
 ### logit link function
 ```{r logit-interaction, eval=FALSE}
-form.acc.logit<- Acc ~ Coh + Speed + PatternType + Coh*Speed + Age*Coh +Age*Speed + Age*PatternType+Age*Gender+Gender*Coh + Gender*Speed + Gender*PatternType + (1|SubID)
+form.acc.logit<- Acc ~ Coh + Speed + PatternType + Coh*Speed + Age*Coh +Age*Speed + Age*PatternType + (1|SubID) #Age*Coh design related
 model.acc.logit <- glmer(formula = form.acc.logit, family=binomial(mafc.logit(2)), data = df2)
 summary(model.acc.logit)
 # ss <- getME(model.cloglog.interaction,c("theta","fixef"))
@@ -391,6 +402,9 @@ AIC 5768
 
 ### Weibull function
 ```{r weibull-interaction, eval=FALSE}
+accfit <- fitdist(df.bysub.bycond$Pct.Corr,"weibull") # by conditions?
+accfit   # estimate
+weibull(,shape=9.3969663,scale=0.9412456)
 family = mafc.weib( ... )
 # library(VGAM)
 # form.weibull.interaction<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
@@ -409,6 +423,7 @@ exp(confint(model.logit.interaction))
 #### compare two models
 waldtest(model.acc.logit,model.acc.probit) 
 #### post hoc
+anova(model.acc.logit)    # a wald test for the fixed effects
 wald.test(b = coef(model.acc.logit), Sigma = vcov(model.acc.logit), Terms = 2) <!-- #test Coh -->
 wald.test(b = coef(model.acc.logit), Sigma = vcov(model.acc.logit), Terms = 3) <!-- #test Speed -->
 wald.test(b = coef(model.acc.logit), Sigma = vcov(model.acc.logit), Terms = 4) <!-- #test Pattern -->
