@@ -279,6 +279,7 @@ $B_{2j} = r_{20}+u_{2j}$
 $B_{3j} = r_{30}+u_{3j}$
 
 ## Accuracy 
+df2$Speed <- factor(df2$Speed, labels = c("2deg/s", "8deg/s"))
 ### probit link function
 #### Empty model
 ```{r probit-empty, eval=FALSE}
@@ -287,7 +288,6 @@ model.acc.empty <- glmer(formula = form.empty, family=binomial(mafc.probit(2)), 
 summary(model.acc.empty)
 ```
 
-
 ```{r ICC-Acc, eval=FALSE}
 ICC_Acc <- 0.1289/(0.1289+0.8074)
 The result is the same as the uncleaned one
@@ -295,12 +295,11 @@ The result is the same as the uncleaned one
 ```
 ICC is small (14%)
 #### full model with random intercept
-```{r probit-full, eval=FALSE}
-form.fixed <- Acc ~ Coh + Speed + PatternType + (1|SubID)
+```{r probit-without-Gender-Age, eval=FALSE}
+form.fixed <- Acc ~ Coh + Speed + PatternType  + (1|SubID)
 model.acc.fixed <- glmer(formula = form.fixed, family=binomial(mafc.probit(2)), data = df2)
 summary(model.acc.fixed)
 ```
-
 AIC 5753
 
 #### full model with random intercept and random slope
@@ -311,7 +310,6 @@ summary(model.acc.gender)
 ```
 
 AIC 5757
-
 ```{r probit-random-slope-AgeYrs, eval=FALSE}
 form.age <- Acc ~ Coh + Speed + PatternType + (Age+1|SubID)
 model.acc.age <- glmer(formula = form.age, family=binomial(mafc.probit(2)), data = df2)
@@ -321,30 +319,57 @@ summary(model.acc.age)
 AIC 5767
 AIC does not decrease in the random slope model
 
-# interaction
-```{r probit-interaction, eval=FALSE}
-form.full<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
+#### age and gender as fixed effect
+```{r probit-without-gender, eval=FALSE}
+form.fixed1 <- Acc ~ Coh + Speed + PatternType + Age + (1|SubID)
+model.acc.fixed1 <- glmer(formula = form.fixed1, family=binomial(mafc.probit(2)), data = df2)
+summary(model.acc.fixed1)
+library(lmtest)
+lrtest(model.acc.fixed,model.acc.fixed1) # likelihood test: not significant
+# wardtest(model.acc.fixed,model.acc.fixed1)
+anova(model.acc.fixed,model.acc.fixed1)  # waldtest: significant
+```
+AIC 5732
+
+```{r probit-without-age, eval=FALSE}
+form.fixed2 <- Acc ~ Coh + Speed + PatternType + Gender + (1|SubID)
+model.acc.fixed2 <- glmer(formula = form.fixed2, family=binomial(mafc.probit(2)), data = df2)
+summary(model.acc.fixed2)
+anova(model.acc.fixed,model.acc.fixed2) #significant
+```
+AIC 5748
+```{r probit-full, eval=FALSE}
+form.full <- Acc ~ Coh + Speed + PatternType + Gender + Age + (1|SubID)
 model.acc.full <- glmer(formula = form.full, family=binomial(mafc.probit(2)), data = df2)
 summary(model.acc.full)
+anova(model.acc.fixed,model.acc.full)  # significant
 ```
-
-model failed to converge
-
-# bumped up max number of iterations.
- ss <- getME(model.acc.full,c("theta","fixef"))
-<!-- m2 <- update(model.acc.full,start=ss,control=glmerControl(optCtrl=list(maxfun=2e4))) -->
+#### interaction effect
+```{r probit-interaction, eval=FALSE}
+form.full1<- Acc ~  Age + Gender + Coh*Speed*PatternType + (1|SubID)
+model.acc.full1 <- glmer(formula = form.full1, family=binomial(mafc.probit(2)), data = df2)
+summary(model.acc.full1)
+anova(model.acc.full1,model.acc.full)  #better fit
+```
+```{r probit-interaction-, eval=FALSE}
+form.full2<- Acc ~ Coh + Speed + PatternType + Age + Gender + Coh*Speed + Age*Coh +Age*Speed + Age*PatternType+Age*Gender+Gender*Coh + Gender*Speed + Gender*PatternType+ (1|SubID)
+model.acc.full2 <- glmer(formula = form.full2, family=binomial(mafc.probit(2)), data = df2)
+summary(model.acc.full2)
+anova(model.acc.full1,model.acc.full2)  # better fit
+```
+# ##### bumped up max number of iterations.
+#  ss <- getME(model.acc.full,c("theta","fixef"))
+# <!-- m2 <- update(model.acc.full,start=ss,control=glmerControl(optCtrl=list(maxfun=2e4))) -->
 # still failed,  Try a different optimizer
-
-```{r find-optimizer}
-model.acc.full.new <- update(model.acc.full,start=ss,control=glmerControl(optimizer="bobyqa",
-                            optCtrl=list(maxfun=2e5)))
-summary(model.acc.full.new)
+# 
+# ```{r find-optimizer}
+# model.acc.full.new <- update(model.acc.full,start=ss,control=glmerControl(optimizer="bobyqa",
+#                             optCtrl=list(maxfun=2e5)))
+# summary(model.acc.full.new)
 ```
-AIC 5735, better model fit
-
-# logit link function
+### logit link function
 ```{r logit-interaction, eval=FALSE}
-form.acc.logit<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
+form.acc.logit<- Acc ~ Coh + Speed + PatternType + Coh*Speed + Age*Coh +Age*Speed + Age*PatternType+Age*Gender+Gender*Coh + Gender*Speed + Gender*PatternType + (1|SubID)
 model.acc.logit <- glmer(formula = form.acc.logit, family=binomial(mafc.logit(2)), data = df2)
 summary(model.acc.logit)
 # ss <- getME(model.cloglog.interaction,c("theta","fixef"))
@@ -355,7 +380,7 @@ summary(model.acc.logit)
 AIC 5715, smaller AIC
 
 ```{r cloglog-interaction, eval=FALSE}
-form.acc.cloglog<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
+form.acc.cloglog<- Acc ~ Coh + Speed + PatternType + Coh*Speed + Age*Coh +Age*Speed + Age*PatternType+Age*Gender+Gender*Coh + Gender*Speed + Gender*PatternType + (1|SubID)
 model.acc.cloglog <- glmer(formula = form.acc.cloglog, family=binomial(mafc.cloglog(2)), data = df2)
 summary(model.acc.cloglog)
 # ss <- getME(model.cloglog.interaction,c("theta","fixef"))
@@ -364,7 +389,7 @@ summary(model.acc.cloglog)
 ```
 AIC 5768
 
-# Weibull function
+### Weibull function
 ```{r weibull-interaction, eval=FALSE}
 family = mafc.weib( ... )
 # library(VGAM)
@@ -373,20 +398,58 @@ family = mafc.weib( ... )
 # summary(model.weibull.interaction)
 ```
 
-
-outliers<-outlierTest(model, cutoff=0.05, n.max=20, order=TRUE, 
-	labels=names(rstudent), ...)
-# Reports the Bonferroni p-values for testing each observation in turn to be a mean-shift outliner, based Studentized residuals in linear (t-tests) and generalized linear models (normal tests).
-
-
-odd<-predict(model.logit.interaction,data.frame(Acc=c(, , ,)))
-log_odds<-predict(model.logit.interaction,data.frame(b0*Coh + Speed + PatternType + Coh*Speed*PatternType)=c(0.25,0.5,0.75)))
-exp(lodds)/(1+exp(lodds))
-
+## Further examination for the models
+### obtain confidence intervals for the coefficient estimates
+confint(model.acc.logit) 
 # get the exact 95% confidence interval for the coefficients b
 exp(confint(model.logit.interaction))
 
+### wald test
+```{r comparsion}
+#### compare two models
+waldtest(model.acc.logit,model.acc.probit) 
+#### post hoc
+wald.test(b = coef(model.acc.logit), Sigma = vcov(model.acc.logit), Terms = 2) <!-- #test Coh -->
+wald.test(b = coef(model.acc.logit), Sigma = vcov(model.acc.logit), Terms = 3) <!-- #test Speed -->
+wald.test(b = coef(model.acc.logit), Sigma = vcov(model.acc.logit), Terms = 4) <!-- #test Pattern -->
+wald.test(b = coef(model.acc.logit), Sigma = vcov(model.acc.logit), Terms = 5) <!-- #test Coh::Speed -->
+<!-- l <- cbind(0, 0, 0, 1, -1, 0)
+wald.test(b = coef(myprobit), Sigma = vcov(myprobit), L = l) -->
+```
+
+```{r correct response by log of Coh, Speed, PatternType}
+df2$accfit <- fitted(model.acc.logit)  # shall I include the age and gender?
+df2 %>% 
+  group_by(Age, PatternType, Speed, Coh) %>% 
+  summarize(N.corr = sum(Acc), 
+            N.tot = n(), 
+            Pct.Corr = N.corr/N.tot,
+            RT.mean=mean(RT, na.rm = T),
+            RT.sd=sd(RT, na.rm = T)) -> 
+  df.bycond
+  
+library(lattice)
+xyplot(Pct.Corr~ Coh | Speed * PatternType, data = df.bycond,
+	subscripts = TRUE, 
+	# ID = with(ecc2, Size + as.numeric(task)),
+	scale = list(x = list(log = TRUE), 
+				 y = list(limits = c(0, 1))),
+	xlab = "Coherence", ylab = "Proportion Correct Response",
+	aspect = "xy",
+	panel = function(x, y, subscripts, ID, ...) {
+		which = unique(ID[subscripts])
+		llines(x, ecc2$fit[which ==ID], col = "black", ...)
+		panel.xyplot(x, y, pch = 16, ...)
+		panel.abline(h = 0.25, lty = 2, ...)
+		}
+)
+```
+
 ```{r Acc-coef-plot, include=TRUE}
+### obtain confidence intervals for the coefficient estimates
+confint(model.acc.logit) 
+# get the exact 95% confidence interval for the coefficients b
+exp(confint(model.logit.interaction))
 #ranef(model.full,confVar=T)
 #A generic function to extract the conditional modes of the random effects from a fitted model object.
 #coef(model.full)
@@ -399,28 +462,37 @@ hist(coef(m3)$SubID[1:30,1],xlab="Random intercepts",main="Histogram of random i
 #plot lines for the first 5 schools based on the posterior means (M3)
 plot(x=c(0,1),y=c(0,1),type="n",xlab="fixed effects",ylab="Acc",main="Subject-specific regression lines, m3")
 for(i in 1:30) {
-abline(a=coef(m3)$SubID[i,1],b=coef(m3)$SubID[i,2])
+abline(a=coef(model.acc.logit)$SubID[i,1],b=coef(model.acc.logit)$SubID[i,2])
 }
 ```
-
-## ANOVA
-anova(model.logit.interaction)
-qchisq(0.95,1) # get the threshold of this percentile
-
-# RT
-# Empty model
-```{r probit-empty, eval=FALSE}
-form.empty.rt <- df$RT~(1|df$SubID)
-model.empty.rt <- lmer(formula = form.empty, data = df,REML=FALSE,na.omit=TRUE)
+### make prediction
+```{r acc-prediction-plot}
+prediction.acc <- data.frame(SubID = foo[["names"]],Coh = rep(seq(from = 15, to = 80, length.out = 100), 
+    2 * 2 * 30), Speed = factor(rep(c(2, 8), each = 100*30)), PatternType = factor(rep(c('linear','radial'), each=100*30)))
+prediction.acc[, c("pcorr", "se")] <- predict(model.acc.logit, prediction.acc, type = "response", se.fit = TRUE)[-3]
+ggplot(prediction.acc, aes(x = Coh, y = pcorr, colour = Age)) + geom_line() + facet_grid(facets = Speed ~ PatternType)  + theme_bw() + theme.custom 
+# add age
 ```
-```{r summary.full.model, eval=FALSE}
+library(car
+car::outliers<-outlierTest(model.acc.logit, cutoff=0.05, n.max=30, order=TRUE, labels=names(rstudent), ...)
+	
+# Reports the Bonferroni p-values for testing each observation in turn to be a mean-shift outliner, based Studentized residuals in linear (t-tests) and generalized linear models (normal tests).
+
+
+odd<-predict(model.logit.interaction,data.frame(Acc=c(, , ,)))
+log_odds<-predict(model.logit.interaction,data.frame(b0*Coh + Speed + PatternType + Coh*Speed*PatternType)=c(0.25,0.5,0.75)))
+exp(lodds)/(1+exp(lodds))
+
+## RT
+### Probit function
+#### Empty model
+```{r probit-empty, eval=FALSE}
+form.empty.rt <- df2$RT~(1|df2$SubID)
+model.empty.rt <- lmer(formula = form.empty.rt, data = df2, REML=FALSE,na.omit=TRUE)
 summary(model.empty.rt)
 ```
-```{r RT-ICC, eval=FALSE}
-ICC_RT <- 0.1849/(0.1849+2.37)
-```
-ICC is small
 AIC 4920
+ICC_RT <- 0.1849/(0.1849+2.37)
 
 # Gaussian model with random intercept
 ```{r rt-gaussian, eval=FALSE}
