@@ -163,126 +163,126 @@ df2 %>%
 # the result show all subject do not have normal distribution of RT
 ```
 ### plot of *p*(Corr) by subj
-```{r p-corr-subj-mean-plot}
-# Plot theme, customizations
-y_lbl <- 'p(corr)'
-title_text <- 'p(corr) by subj'
-
-# lines for each subj
-p1 <- ggplot(df.summary, aes(Coh, Pct.Corr)) +
-  geom_line(aes(group=SubID, color=AgeYrs)) +
-  labs(x="Coherence", y=y_lbl) +
-  ggtitle(title_text) +
-  theme_bw() +
-  theme.custom +
-  xlim(0, 1) +
-  geom_hline(yintercept=0.5, linetype="dashed") 
-
-sd = 3
-df.summary <- df.summary %>%
-  group_by(Coh) %>%
-  mutate(pcorr.lower_bound = pcorr.mean-sd*pcorr.sd,pcorr.upper_bound=pcorr.mean+sd*pcorr.sd)
-
-# confidence band
-p1 <- p1 + 
-  geom_line(aes(Coh, pcorr.mean), size = 2) +
-  geom_ribbon(aes(ymin = pcorr.lower_bound, ymax =pcorr.upper_bound), fill = "grey70",
-                alpha=0.5)       #transparency
-
-p1
- # I can try geom_smooth function next time
-# from the plot, we can see the accuracy of subj 1088 has below average percentage of accuracy. But it is not significant
-```  
-### plot of RT by subj
-```{r RT-subj-mean-plot}
-# Plot theme, customizations
-y_lbl <- 'RT'
-title_text <- 'RT by subj'
-
-# lines for each subj
-p2 <- ggplot(df.summary, aes(Coh, RT.mean)) +
-  geom_line(aes(group=SubID, color=AgeYrs)) +
-  labs(x="Coherence", y=y_lbl) +
-  ggtitle(title_text) +
-  theme_bw() +
-  theme.custom +
-  xlim(0, 1) +
-  geom_hline(yintercept=0.5, linetype="dashed") 
-
-
-sd = 3
-df.summary <- df.summary %>%
-  group_by(Coh) %>%
-  mutate(RT.lower_bound = RT.mean.mean-sd*RT.mean.sd,RT.upper_bound=RT.mean.mean+sd*RT.mean.sd)
-
-# confidence band
-p2 <- p2 + 
-  geom_line(aes(Coh, RT.mean.mean), size = 2) +
-  geom_ribbon(aes(ymin = RT.lower_bound, ymax =RT.upper_bound), fill = "grey70",
-                alpha=0.5)       #transparency
-
-p2
+# ```{r p-corr-subj-mean-plot}
+# # Plot theme, customizations
+# y_lbl <- 'p(corr)'
+# title_text <- 'p(corr) by subj'
+# 
+# # lines for each subj
+# p1 <- ggplot(df.summary, aes(Coh, Pct.Corr)) +
+#   geom_line(aes(group=SubID, color=AgeYrs)) +
+#   labs(x="Coherence", y=y_lbl) +
+#   ggtitle(title_text) +
+#   theme_bw() +
+#   theme.custom +
+#   xlim(0, 1) +
+#   geom_hline(yintercept=0.5, linetype="dashed") 
+# 
+# sd = 3
+# df.summary <- df.summary %>%
+#   group_by(Coh) %>%
+#   mutate(pcorr.lower_bound = pcorr.mean-sd*pcorr.sd,pcorr.upper_bound=pcorr.mean+sd*pcorr.sd)
+# 
+# # confidence band
+# p1 <- p1 + 
+#   geom_line(aes(Coh, pcorr.mean), size = 2) +
+#   geom_ribbon(aes(ymin = pcorr.lower_bound, ymax =pcorr.upper_bound), fill = "grey70",
+#                 alpha=0.5)       #transparency
+# 
+# p1
+#  # I can try geom_smooth function next time
+# # from the plot, we can see the accuracy of subj 1088 has below average percentage of accuracy. But it is not significant
+# ```  
+# ### plot of RT by subj
+# ```{r RT-subj-mean-plot}
+# # Plot theme, customizations
+# y_lbl <- 'RT'
+# title_text <- 'RT by subj'
+# 
+# # lines for each subj
+# p2 <- ggplot(df.summary, aes(Coh, RT.mean)) +
+#   geom_line(aes(group=SubID, color=AgeYrs)) +
+#   labs(x="Coherence", y=y_lbl) +
+#   ggtitle(title_text) +
+#   theme_bw() +
+#   theme.custom +
+#   xlim(0, 1) +
+#   geom_hline(yintercept=0.5, linetype="dashed") 
+# 
+# 
+# sd = 3
+# df.summary <- df.summary %>%
+#   group_by(Coh) %>%
+#   mutate(RT.lower_bound = RT.mean.mean-sd*RT.mean.sd,RT.upper_bound=RT.mean.mean+sd*RT.mean.sd)
+# 
+# # confidence band
+# p2 <- p2 + 
+#   geom_line(aes(Coh, RT.mean.mean), size = 2) +
+#   geom_ribbon(aes(ymin = RT.lower_bound, ymax =RT.upper_bound), fill = "grey70",
+#                 alpha=0.5)       #transparency
+# 
+# p2
 ```
 
-### Plot of *p*(corr) by condition
-```{r p-corr-pattern-speed-plot, include=TRUE}
+<!-- ### Plot of *p*(corr) by condition -->
+<!-- ```{r p-corr-pattern-speed-plot, include=TRUE} -->
 
-title_text <- 'p(corr) by Coherence, Pattern, and Speed'
-df.bysub.bycond$Speed <- factor(df.bysub.bycond$Speed, labels = c("2 deg/s", "8 deg/s"))
+<!-- title_text <- 'p(corr) by Coherence, Pattern, and Speed' -->
+<!-- df.bysub.bycond$Speed <- factor(df.bysub.bycond$Speed, labels = c("2 deg/s", "8 deg/s")) -->
 
-sd = 3
-df.bysub.bycond <- df.bysub.bycond %>%
-  group_by(PatternType, Speed,Coh) %>%
-  mutate(lower_bound = pcorr.mean-sd*pcorr.sd,upper_bound=pcorr.mean+sd*pcorr.sd)
-# Plot for all subs
-p.corr <- ggplot(data=df.bysub.bycond, aes(x=Coh, y=Pct.Corr)) 
-p.corr <- p.corr + 
-  geom_line(aes(group=SubID, color=AgeYrs)) +
-  facet_grid(facets = Speed ~ PatternType) +
-  labs(x="Coherence", y=y_lbl) +
-  ggtitle(title_text) +
-  theme_bw() +
-  theme.custom +
-  xlim(0, 1) +
-  geom_hline(yintercept=0.5, linetype="dashed") 
-# confidence band
-p.corr <- p.corr + 
-  geom_line(aes(Coh, pcorr.mean), size = 2) +
-  geom_ribbon(aes(ymin = lower_bound, ymax =upper_bound), fill = "grey70",
-                alpha=0.5) 
-p.corr
-# we can see the small variance at the coherence level of .20, .40, .80 for small sample size. In radial condition, one subj (1088) is deviant in speed of 2 deg/s and 1059 is deviant in speed of 8 deg/s.
-```
+<!-- sd = 3 -->
+<!-- df.bysub.bycond <- df.bysub.bycond %>% -->
+<!--   group_by(PatternType, Speed,Coh) %>% -->
+<!--   mutate(lower_bound = pcorr.mean-sd*pcorr.sd,upper_bound=pcorr.mean+sd*pcorr.sd) -->
+<!-- # Plot for all subs -->
+<!-- p.corr <- ggplot(data=df.bysub.bycond, aes(x=Coh, y=Pct.Corr))  -->
+<!-- p.corr <- p.corr +  -->
+<!--   geom_line(aes(group=SubID, color=AgeYrs)) + -->
+<!--   facet_grid(facets = Speed ~ PatternType) + -->
+<!--   labs(x="Coherence", y=y_lbl) + -->
+<!--   ggtitle(title_text) + -->
+<!--   theme_bw() + -->
+<!--   theme.custom + -->
+<!--   xlim(0, 1) + -->
+<!--   geom_hline(yintercept=0.5, linetype="dashed")  -->
+<!-- # confidence band -->
+<!-- p.corr <- p.corr +  -->
+<!--   geom_line(aes(Coh, pcorr.mean), size = 2) + -->
+<!--   geom_ribbon(aes(ymin = lower_bound, ymax =upper_bound), fill = "grey70", -->
+<!--                 alpha=0.5)  -->
+<!-- p.corr -->
+<!-- # we can see the small variance at the coherence level of .20, .40, .80 for small sample size. In radial condition, one subj (1088) is deviant in speed of 2 deg/s and 1059 is deviant in speed of 8 deg/s. -->
+<!-- ``` -->
 
-### Plot of reaction time by condition
+<!-- ### Plot of reaction time by condition -->
 
-```{r rt-pattern-speed-plot, include=TRUE}
-# Plot RTs
-y_lbl <- 'RT (s)'
-title_text <- 'RT by Coherence, Pattern, and Speed'
+<!-- ```{r rt-pattern-speed-plot, include=TRUE} -->
+<!-- # Plot RTs -->
+<!-- y_lbl <- 'RT (s)' -->
+<!-- title_text <- 'RT by Coherence, Pattern, and Speed' -->
 
-sd = 3
-df.bysub.bycond <- df.bysub.bycond %>%
-  group_by(PatternType, Speed,Coh) %>%
-  mutate(lower_bound = RT.mean.mean-sd*RT.mean.sd,upper_bound=RT.mean.mean+sd*RT.mean.sd)
+<!-- sd = 3 -->
+<!-- df.bysub.bycond <- df.bysub.bycond %>% -->
+<!--   group_by(PatternType, Speed,Coh) %>% -->
+<!--   mutate(lower_bound = RT.mean.mean-sd*RT.mean.sd,upper_bound=RT.mean.mean+sd*RT.mean.sd) -->
 
-# Plot for all subs
-p.rt <- ggplot(data=df.bysub.bycond, aes(x=Coh, y=RT.mean))
-p.rt <- p.rt + 
-  geom_line(aes(group=SubID, color=AgeYrs)) +
-  facet_grid(facets = Speed ~ PatternType) +
-  labs(x="Coherence", y=y_lbl) +
-  # ggtitle(title_text) +
-  theme_bw() +
-  theme.custom +
-  xlim(0, 1)
-# confidence band
-p.rt <- p.rt + 
-  geom_line(aes(Coh, RT.mean.mean), size = 2) +
-  geom_ribbon(aes(ymin = lower_bound, ymax =upper_bound), fill = "grey70",
-                alpha=0.5) 
-p.rt
-# In condition of speed of 2, there are 2 deviance (one subj 1077 deviant from the mean in both linear condition and radial condition)
+<!-- # Plot for all subs -->
+<!-- p.rt <- ggplot(data=df.bysub.bycond, aes(x=Coh, y=RT.mean)) -->
+<!-- p.rt <- p.rt +  -->
+<!--   geom_line(aes(group=SubID, color=AgeYrs)) + -->
+<!--   facet_grid(facets = Speed ~ PatternType) + -->
+<!--   labs(x="Coherence", y=y_lbl) + -->
+<!--   # ggtitle(title_text) + -->
+<!--   theme_bw() + -->
+<!--   theme.custom + -->
+<!--   xlim(0, 1) -->
+<!-- # confidence band -->
+<!-- p.rt <- p.rt +  -->
+<!--   geom_line(aes(Coh, RT.mean.mean), size = 2) + -->
+<!--   geom_ribbon(aes(ymin = lower_bound, ymax =upper_bound), fill = "grey70", -->
+<!--                 alpha=0.5)  -->
+<!-- p.rt -->
+<!-- # In condition of speed of 2, there are 2 deviance (one subj 1077 deviant from the mean in both linear condition and radial condition) -->
 ```
 #Generalized linear mixed effects model with a probit link/ logit link/ weibull model
 Generalized linear mixed effects model 
@@ -423,85 +423,85 @@ confint(model.acc.logit)
 # get the exact 95% confidence interval for the coefficients b
 exp(confint(model.logit.interaction))
 
-### wald test
-```{r comparsion}
-#### compare two models
-waldtest(model.acc.logit,model.acc.probit) 
-#### post hoc
-anova(model.acc.logit)    # a wald test for the fixed effects
-wald.test(b = coef(model.acc.logit), Sigma = vcov(model.acc.logit), Terms = 2) <!-- #test Coh -->
-wald.test(b = coef(model.acc.logit), Sigma = vcov(model.acc.logit), Terms = 3) <!-- #test Speed -->
-wald.test(b = coef(model.acc.logit), Sigma = vcov(model.acc.logit), Terms = 4) <!-- #test Pattern -->
-wald.test(b = coef(model.acc.logit), Sigma = vcov(model.acc.logit), Terms = 5) <!-- #test Coh::Speed -->
-<!-- l <- cbind(0, 0, 0, 1, -1, 0)
-wald.test(b = coef(myprobit), Sigma = vcov(myprobit), L = l) -->
-```
+<!-- ### wald test -->
+<!-- ```{r comparsion} -->
+<!-- #### compare two models -->
+<!-- waldtest(model.acc.logit,model.acc.probit)  -->
+<!-- #### post hoc -->
+<!-- anova(model.acc.logit)    # a wald test for the fixed effects -->
+<!-- wald.test(b = coef(model.acc.logit), Sigma = vcov(model.acc.logit), Terms = 2) <!-- #test Coh --> -->
+<!-- wald.test(b = coef(model.acc.logit), Sigma = vcov(model.acc.logit), Terms = 3) <!-- #test Speed --> -->
+<!-- wald.test(b = coef(model.acc.logit), Sigma = vcov(model.acc.logit), Terms = 4) <!-- #test Pattern --> -->
+<!-- wald.test(b = coef(model.acc.logit), Sigma = vcov(model.acc.logit), Terms = 5) <!-- #test Coh::Speed --> -->
+<!-- <!-- l <- cbind(0, 0, 0, 1, -1, 0) -->
+<!-- wald.test(b = coef(myprobit), Sigma = vcov(myprobit), L = l) --> -->
+<!-- ``` -->
 
-```{r correct response by log of Coh, Speed, PatternType}
-df2$accfit <- fitted(model.acc.logit)  # shall I include the age and gender?
-df2 %>% 
-  group_by(Age, PatternType, Speed, Coh) %>% 
-  summarize(N.corr = sum(Acc), 
-            N.tot = n(), 
-            Pct.Corr = N.corr/N.tot,
-            RT.mean=mean(RT, na.rm = T),
-            RT.sd=sd(RT, na.rm = T)) -> 
-  df.bycond
-  
-library(lattice)
-xyplot(Pct.Corr~ Coh | Speed * PatternType, data = df.bycond,
-	subscripts = TRUE, 
-	# ID = with(ecc2, Size + as.numeric(task)),
-	scale = list(x = list(log = TRUE), 
-				 y = list(limits = c(0, 1))),
-	xlab = "Coherence", ylab = "Proportion Correct Response",
-	aspect = "xy",
-	panel = function(x, y, subscripts, ID, ...) {
-		which = unique(ID[subscripts])
-		llines(x, ecc2$fit[which ==ID], col = "black", ...)
-		panel.xyplot(x, y, pch = 16, ...)
-		panel.abline(h = 0.25, lty = 2, ...)
-		}
-)
-```
+<!-- ```{r correct response by log of Coh, Speed, PatternType} -->
+<!-- df2$accfit <- fitted(model.acc.logit)  # shall I include the age and gender? -->
+<!-- df2 %>%  -->
+<!--   group_by(Age, PatternType, Speed, Coh) %>%  -->
+<!--   summarize(N.corr = sum(Acc),  -->
+<!--             N.tot = n(),  -->
+<!--             Pct.Corr = N.corr/N.tot, -->
+<!--             RT.mean=mean(RT, na.rm = T), -->
+<!--             RT.sd=sd(RT, na.rm = T)) ->  -->
+<!--   df.bycond -->
 
-```{r Acc-coef-plot1, include=TRUE}
-### obtain confidence intervals for the coefficient estimates
-confint(model.acc.logit) 
-# get the exact 95% confidence interval for the coefficients b
-exp(confint(model.logit.interaction))
-#ranef(model.full,confVar=T)
-#A generic function to extract the conditional modes of the random effects from a fitted model object.
-#coef(model.full)
-#coef is a generic function which extracts model coefficients from objects returned by modeling functions. coefficients is an alias for it.
-hist(ranef(m3)$SubID[1:30,],xlab="U0j",main="Histogram of random effects")
-hist(coef(m3)$SubID[1:30,1],xlab="Random intercepts",main="Histogram of random intercepts")
-```
+<!-- library(lattice) -->
+<!-- xyplot(Pct.Corr~ Coh | Speed * PatternType, data = df.bycond, -->
+<!-- 	subscripts = TRUE,  -->
+<!-- 	# ID = with(ecc2, Size + as.numeric(task)), -->
+<!-- 	scale = list(x = list(log = TRUE),  -->
+<!-- 				 y = list(limits = c(0, 1))), -->
+<!-- 	xlab = "Coherence", ylab = "Proportion Correct Response", -->
+<!-- 	aspect = "xy", -->
+<!-- 	panel = function(x, y, subscripts, ID, ...) { -->
+<!-- 		which = unique(ID[subscripts]) -->
+<!-- 		llines(x, ecc2$fit[which ==ID], col = "black", ...) -->
+<!-- 		panel.xyplot(x, y, pch = 16, ...) -->
+<!-- 		panel.abline(h = 0.25, lty = 2, ...) -->
+<!-- 		} -->
+<!-- ) -->
+<!-- ``` -->
 
-```{r subject-specific-regression-plot1}
-#plot lines for the first 5 schools based on the posterior means (M3)
-plot(x=c(0,1),y=c(0,1),type="n",xlab="fixed effects",ylab="Acc",main="Subject-specific regression lines, m3")
-for(i in 1:30) {
-abline(a=coef(model.acc.logit)$SubID[i,1],b=coef(model.acc.logit)$SubID[i,2])
-}
-```
-### make prediction
-```{r acc-prediction-plot}
-prediction.acc <- data.frame(SubID = foo[["names"]],Coh = rep(seq(from = 15, to = 80, length.out = 100), 
-    2 * 2 * 30), Speed = factor(rep(c(2, 8), each = 100*30)), PatternType = factor(rep(c('linear','radial'), each=100*30)))
-prediction.acc[, c("pcorr", "se")] <- predict(model.acc.logit, prediction.acc, type = "response", se.fit = TRUE)[-3]
-ggplot(prediction.acc, aes(x = Coh, y = pcorr, colour = Age)) + geom_line() + facet_grid(facets = Speed ~ PatternType)  + theme_bw() + theme.custom 
-# add age
-```
-library(car
-car::outliers<-outlierTest(model.acc.logit, cutoff=0.05, n.max=30, order=TRUE, labels=names(rstudent), ...)
-	
-# Reports the Bonferroni p-values for testing each observation in turn to be a mean-shift outliner, based Studentized residuals in linear (t-tests) and generalized linear models (normal tests).
+<!-- ```{r Acc-coef-plot1, include=TRUE} -->
+<!-- ### obtain confidence intervals for the coefficient estimates -->
+<!-- confint(model.acc.logit)  -->
+<!-- # get the exact 95% confidence interval for the coefficients b -->
+<!-- exp(confint(model.logit.interaction)) -->
+<!-- #ranef(model.full,confVar=T) -->
+<!-- #A generic function to extract the conditional modes of the random effects from a fitted model object. -->
+<!-- #coef(model.full) -->
+<!-- #coef is a generic function which extracts model coefficients from objects returned by modeling functions. coefficients is an alias for it. -->
+<!-- hist(ranef(m3)$SubID[1:30,],xlab="U0j",main="Histogram of random effects") -->
+<!-- hist(coef(m3)$SubID[1:30,1],xlab="Random intercepts",main="Histogram of random intercepts") -->
+<!-- ``` -->
+
+<!-- ```{r subject-specific-regression-plot1} -->
+<!-- #plot lines for the first 5 schools based on the posterior means (M3) -->
+<!-- plot(x=c(0,1),y=c(0,1),type="n",xlab="fixed effects",ylab="Acc",main="Subject-specific regression lines, m3") -->
+<!-- for(i in 1:30) { -->
+<!-- abline(a=coef(model.acc.logit)$SubID[i,1],b=coef(model.acc.logit)$SubID[i,2]) -->
+<!-- } -->
+<!-- ``` -->
+<!-- ### make prediction -->
+<!-- ```{r acc-prediction-plot} -->
+<!-- prediction.acc <- data.frame(SubID = foo[["names"]],Coh = rep(seq(from = 15, to = 80, length.out = 100),  -->
+<!--     2 * 2 * 30), Speed = factor(rep(c(2, 8), each = 100*30)), PatternType = factor(rep(c('linear','radial'), each=100*30))) -->
+<!-- prediction.acc[, c("pcorr", "se")] <- predict(model.acc.logit, prediction.acc, type = "response", se.fit = TRUE)[-3] -->
+<!-- ggplot(prediction.acc, aes(x = Coh, y = pcorr, colour = Age)) + geom_line() + facet_grid(facets = Speed ~ PatternType)  + theme_bw() + theme.custom  -->
+<!-- # add age -->
+<!-- ``` -->
+<!-- library(car -->
+<!-- car::outliers<-outlierTest(model.acc.logit, cutoff=0.05, n.max=30, order=TRUE, labels=names(rstudent), ...) -->
+
+<!-- # Reports the Bonferroni p-values for testing each observation in turn to be a mean-shift outliner, based Studentized residuals in linear (t-tests) and generalized linear models (normal tests). -->
 
 
-odd<-predict(model.logit.interaction,data.frame(Acc=c(, , ,)))
-log_odds<-predict(model.logit.interaction,data.frame(b0*Coh + Speed + PatternType + Coh*Speed*PatternType)=c(0.25,0.5,0.75)))
-exp(lodds)/(1+exp(lodds))
+<!-- odd<-predict(model.logit.interaction,data.frame(Acc=c(, , ,))) -->
+<!-- log_odds<-predict(model.logit.interaction,data.frame(b0*Coh + Speed + PatternType + Coh*Speed*PatternType)=c(0.25,0.5,0.75))) -->
+<!-- exp(lodds)/(1+exp(lodds)) -->
 
 ## RT
 ### Probit function
@@ -539,15 +539,15 @@ AIC 23515
 # lmer is used to fit linear mixed-effect models, so it assumes that the residual error has a Gaussian distribution. test whether the residual error is gaussian distribution
 
 ```{r plot-of-residual-distribution}
-rt.res = resid(model.fixed.rt2)
-plot( rt.res,    ylab="Residuals",  main="residual of the rt") 
-abline(0, 0)                  # the horizon
-hist(rt.res)
-shapiro.test(rt.res) # sample size must be between 3 to 5000
-ks.test(rt.res,y='pnorm',alternative='two.sided') # it is not normal distribution
+#rt.res = resid(model.fixed.rt2)
+#plot(rt.res,    ylab="Residuals",  main="residual of the rt") 
+#abline(0, 0)                  # the horizon
+#hist(rt.res)
+#shapiro.test(rt.res) # sample size must be between 3 to 5000
+#ks.test(rt.res,y='pnorm',alternative='two.sided') # it is not normal distribution
 ```
 ### Gaussian model with random slope:age
-```{r rt-gaussian, eval=FALSE}
+```{r rt-gaussian-age, eval=FALSE}
 form.random.age <- RT.norm ~ Coh + Speed + PatternType + Gender + Age + (Age|SubID)
 model.random.age <- lmer(formula = form.random.age, data = df2, REML=FALSE)
 summary(model.random.age)
@@ -555,7 +555,7 @@ summary(model.random.age)
 AIC 23514
 
 #### Gaussian model with random slope: gender
-```{r rt-gaussian, eval=FALSE}
+```{r rt-gaussian-gender, eval=FALSE}
 form.random.gender<- RT.norm ~ Coh + Speed + PatternType  + (Gender|SubID)
 model.random.gender <- lmer(formula = form.random.gender, data = df2, REML=FALSE)
 summary(model.random.gender)
@@ -569,13 +569,12 @@ form.interaction.rt<- RT.norm ~ Coh + Speed + PatternType  + Age+ Gender + Coh*S
 model.interaction.rt <- lmer(formula = form.interaction.rt, data = df2, REML=FALSE)
 summary(model.interaction.rt) #AIC 23507
 ```
-```{r rt-gaussian-interaction, eval=FALSE}
+```{r rt-gaussian-interaction-full, eval=FALSE}
 form.full.rt<- RT.norm ~ Coh + Speed + PatternType  + Age+ Gender + Age*Coh + Age*Speed +Age*PatternType + (1|SubID)
 model.full.rt <- lmer(formula = form.full.rt, data = df2, REML=FALSE)
 summary(model.full.rt) #AIC 23411
 anova(model.full.rt, model.interaction.rt)
 ```
-
 ## survival function
 ```{r survival-function}
 library(survival)
