@@ -86,9 +86,9 @@ outliersQ<- function(x, na.rm = TRUE, ...) {
   y[x > qnt[2] ] <- NA
   y
 }
-df.clean <- df2 %>%
+df2 %>%
   group_by(SubID) %>%
-  mutate(RT = outliersQ(RT))
+  mutate(RT = outliersQ(RT)) -> df.clean
 boxplot(RT ~ SubID, data=df.clean, main="the boxplot of reaction time for each subject cleaned by quantile")
 # method 2: remove the outliers by z score (3 standard deviation from mean)
 outliersZ <- function(x, cutoff) {
@@ -149,6 +149,7 @@ head(df.bysub.bycond)
 
 ```{r rt-norm}
 # the y axis represents the observations and the x axis represents the quantiles modeled by the distribution. The solid line represents a perfect distribution fit and the dashed lines are the confidence intervals of the perfect distribution fit
+library(car)
 qqp(df2$Acc,"norm")
 # lognormal
 qqp(df2$Acc,"lnorm")
@@ -156,7 +157,10 @@ qqp(df2$Acc,"lnorm")
 hist(df2$RT)
 qqPlot(df2$RT)
 qqnorm(df2$RT); qqline(df2$RT)
-shapiro.test(df2$RT)  # From the output, the p-value > 0.05 implying that the distribution of the data are not significantly different from normal distribution. In other words, we can assume the normality.
+df2 %>% 
+  group_by(SubID) %>% 
+  summarize(results = data_frame(shapiro.test(RT)))->shapiroresult # From the output, the p-value > 0.05 implying that the distribution of the data are not significantly different from normal distribution. In other words, we can assume the normality.
+# the result show all subject do not have normal distribution of RT
 ```
 ### plot of *p*(Corr) by subj
 ```{r p-corr-subj-mean-plot}
@@ -291,9 +295,10 @@ $B_{3j} = r_{30}+u_{3j}$
 
 ## Accuracy 
 df2$Speed <- factor(df2$Speed, labels = c("2deg/s", "8deg/s"))
+df2$Age <- factor(df2$Age,ordered = FALSE) # the variables can not be ordinal, it will have L, C, Q
 ### probit link function
 #### Empty model
-```{r probit-empty, eval=FALSE}
+```{r acc-probit-empty, eval=FALSE}
 form.empty <- Acc~(1|SubID)
 model.acc.empty <- glmer(formula = form.empty, family=binomial(mafc.probit(2)), data = df2)
 summary(model.acc.empty)
@@ -306,7 +311,7 @@ The result is the same as the uncleaned one
 ```
 ICC is small (14%)
 #### full model with random intercept
-```{r probit-without-Gender-Age, eval=FALSE}
+```{r acc-probit-without-Gender-Age, eval=FALSE}
 form.fixed <- Acc ~ Coh + Speed + PatternType  + (1|SubID)
 model.acc.fixed <- glmer(formula = form.fixed, family=binomial(mafc.probit(2)), data = df2)
 summary(model.acc.fixed)
@@ -314,14 +319,14 @@ summary(model.acc.fixed)
 AIC 5753
 
 #### full model with random intercept and random slope
-```{r probit-random-slope-gender, eval=FALSE}
+```{r acc-probit-random-slope-gender, eval=FALSE}
 model.gender<- Acc ~ Coh + Speed + PatternType + (1+Gender|SubID)
 model.acc.gender<- glmer(formula = model.gender, family=binomial(mafc.probit(2)), data = df2 )
 summary(model.acc.gender)
 ```
 
 AIC 5757
-```{r probit-random-slope-AgeYrs, eval=FALSE}
+```{r acc-probit-random-slope-AgeYrs, eval=FALSE}
 form.age <- Acc ~ Coh + Speed + PatternType + (Age+1|SubID)
 model.acc.age <- glmer(formula = form.age, family=binomial(mafc.probit(2)), data = df2)
 summary(model.acc.age)
@@ -331,7 +336,7 @@ AIC 5767
 AIC does not decrease in the random slope model
 
 #### age and gender as fixed effect
-```{r probit-without-gender, eval=FALSE}
+```{r acc-probit-without-gender, eval=FALSE}
 form.fixed1 <- Acc ~ Coh + Speed + PatternType + Age + (1|SubID)
 model.acc.fixed1 <- glmer(formula = form.fixed1, family=binomial(mafc.probit(2)), data = df2)
 summary(model.acc.fixed1)
@@ -342,27 +347,27 @@ anova(model.acc.fixed,model.acc.fixed1)  # waldtest: significant
 ```
 AIC 5732
 
-```{r probit-without-age, eval=FALSE}
+```{r acc-probit-without-age, eval=FALSE}
 form.fixed2 <- Acc ~ Coh + Speed + PatternType + Gender + (1|SubID)
 model.acc.fixed2 <- glmer(formula = form.fixed2, family=binomial(mafc.probit(2)), data = df2)
 summary(model.acc.fixed2)
 anova(model.acc.fixed,model.acc.fixed2) #significant
 ```
 AIC 5748
-```{r probit-full, eval=FALSE}
+```{r acc-probit-full, eval=FALSE}
 form.full <- Acc ~ Coh + Speed + PatternType + Gender + Age + (1|SubID)
 model.acc.full <- glmer(formula = form.full, family=binomial(mafc.probit(2)), data = df2)
 summary(model.acc.full)
 anova(model.acc.fixed,model.acc.full)  # significant
 ```
 #### interaction effect
-```{r probit-interaction, eval=FALSE}
+```{r acc-probit-interaction, eval=FALSE}
 form.full1<- Acc ~  Age + Gender + Coh*Speed*PatternType + (1|SubID)
 model.acc.full1 <- glmer(formula = form.full1, family=binomial(mafc.probit(2)), data = df2)
 summary(model.acc.full1)
 anova(model.acc.full1,model.acc.full)  #better fit
 ```
-```{r probit-interaction-, eval=FALSE}
+```{r acc-probit-interaction-gender-age, eval=FALSE}
 form.full2<- Acc ~ Coh + Speed + PatternType + Age + Gender + Coh*Speed + Age*Coh +Age*Speed + Age*PatternType+Age*Gender+Gender*Coh + Gender*Speed + Gender*PatternType+ (1|SubID)
 model.acc.full2 <- glmer(formula = form.full2, family=binomial(mafc.probit(2)), data = df2)
 summary(model.acc.full2)
@@ -379,7 +384,7 @@ anova(model.acc.full1,model.acc.full2)  # better fit
 # summary(model.acc.full.new)
 
 ### logit link function
-```{r logit-interaction, eval=FALSE}
+```{r acc-logit-interaction, eval=FALSE}
 form.acc.logit<- Acc ~ Coh + Speed + PatternType + Coh*Speed + Age*Coh +Age*Speed + Age*PatternType + (1|SubID) #Age*Coh design related
 model.acc.logit <- glmer(formula = form.acc.logit, family=binomial(mafc.logit(2)), data = df2)
 summary(model.acc.logit)
@@ -390,7 +395,7 @@ summary(model.acc.logit)
 <!-- wald.test(b = coef(model.logit.interaction), Sigma = vcov(model.logit.interaction), Terms = 4:6) -->
 AIC 5715, smaller AIC
 
-```{r cloglog-interaction, eval=FALSE}
+```{r acc-cloglog-interaction, eval=FALSE}
 form.acc.cloglog<- Acc ~ Coh + Speed + PatternType + Coh*Speed + Age*Coh +Age*Speed + Age*PatternType+Age*Gender+Gender*Coh + Gender*Speed + Gender*PatternType + (1|SubID)
 model.acc.cloglog <- glmer(formula = form.acc.cloglog, family=binomial(mafc.cloglog(2)), data = df2)
 summary(model.acc.cloglog)
@@ -460,7 +465,7 @@ xyplot(Pct.Corr~ Coh | Speed * PatternType, data = df.bycond,
 )
 ```
 
-```{r Acc-coef-plot, include=TRUE}
+```{r Acc-coef-plot1, include=TRUE}
 ### obtain confidence intervals for the coefficient estimates
 confint(model.acc.logit) 
 # get the exact 95% confidence interval for the coefficients b
@@ -473,7 +478,7 @@ hist(ranef(m3)$SubID[1:30,],xlab="U0j",main="Histogram of random effects")
 hist(coef(m3)$SubID[1:30,1],xlab="Random intercepts",main="Histogram of random intercepts")
 ```
 
-```{r subject-specific-regression-plot}
+```{r subject-specific-regression-plot1}
 #plot lines for the first 5 schools based on the posterior means (M3)
 plot(x=c(0,1),y=c(0,1),type="n",xlab="fixed effects",ylab="Acc",main="Subject-specific regression lines, m3")
 for(i in 1:30) {
@@ -502,94 +507,118 @@ exp(lodds)/(1+exp(lodds))
 ### Probit function
 #### Empty model
 ```{r probit-empty, eval=FALSE}
-form.empty.rt <- df2$RT~(1|df2$SubID)
-model.empty.rt <- lmer(formula = form.empty.rt, data = df2, REML=FALSE,na.omit=TRUE)
+form.empty.rt <- RT~(1|SubID)
+model.empty.rt <- lmer(formula = form.empty.rt, data = df2, REML=FALSE)
 summary(model.empty.rt)
 ```
-AIC 4920
-ICC_RT <- 0.1849/(0.1849+2.37)
+AIC 27807
+ICC_RT <- 0.1849/(0.1849+2.29)
+Not that the rt is not normally distributed, which violated the assumption of mixed effect model
 
-# Gaussian model with random intercept
+#### lm model with random intercept
+```{r rt-no-gaussian, eval=FALSE}
+form.fixed.rt <- RT~ Coh + Speed + PatternType + (1|SubID)
+model.fixed.rt <- lmer(formula = form.fixed.rt, data = df2, REML=FALSE)
+summary(model.fixed.rt)
+```
+AIC 26162
+
+### Gaussian model with random intercept
 ```{r rt-gaussian, eval=FALSE}
-form.full.rt <- RT ~ Coh + Speed + PatternType + (1|SubID)
-model.full.rt <- lmer(formula = form.full.rt,  data = df, REML=FALSE)
-summary(model.full.rt)
+# normalize to mean=0, sd=1
+RT.norm <- (df2$RT - mean(df2$RT,na.rm=T)) / sd(df2$RT,na.rm = T)
+# Is it Gaussian distributed?
+ks.test(RT.norm,y='pnorm',alternative='two.sided')  # No.The normalized result is still not Gaussian distributed
+# shall I do the normalization subject by subject?
+form.fixed.rt2 <- RT.norm ~ Coh + Speed + PatternType  + (1|SubID)
+model.fixed.rt2 <- lmer(formula = form.fixed.rt2, data = df2, REML=FALSE)
+summary(model.fixed.rt2)
 ```
-AIC 30918
+AIC 23515
 
-normalize <- function(x){(x-min(x))/(max(x)-min(x))}
-# probit model with random intercept
-```{r rt-probit, eval=FALSE}
-form.probit.rt <- normalize(df$RT) ~ Coh + Speed + PatternType + (1|SubID)
-model.probit.rt <- glmer(formula = form.full.rt, family = binomial(link = "probit") ,data = df)
-```
-```{r summary.full, eval=FALSE}
-summary(model.probit.rt)
-```
+# lmer is used to fit linear mixed-effect models, so it assumes that the residual error has a Gaussian distribution. test whether the residual error is gaussian distribution
 
-# survival model
+```{r plot-of-residual-distribution}
+rt.res = resid(model.fixed.rt2)
+plot( rt.res,    ylab="Residuals",  main="residual of the rt") 
+abline(0, 0)                  # the horizon
+hist(rt.res)
+shapiro.test(rt.res) # sample size must be between 3 to 5000
+ks.test(rt.res,y='pnorm',alternative='two.sided') # it is not normal distribution
+```
+### Gaussian model with random slope:age
+```{r rt-gaussian, eval=FALSE}
+form.random.age <- RT.norm ~ Coh + Speed + PatternType + Gender + Age + (Age|SubID)
+model.random.age <- lmer(formula = form.random.age, data = df2, REML=FALSE)
+summary(model.random.age)
+```
+AIC 23514
 
-# full model with random intercept and random slope
-```{r probit-random-slope-gender, eval=FALSE}
-model.full.slope1<- RT ~ Coh + Speed + PatternType + (1+Gender|SubID)
-model.full.slope1<- lmer(formula = model.full.slope1, data = df, REML=FALSE)
-summary(model.full.slope1)
+#### Gaussian model with random slope: gender
+```{r rt-gaussian, eval=FALSE}
+form.random.gender<- RT.norm ~ Coh + Speed + PatternType  + (Gender|SubID)
+model.random.gender <- lmer(formula = form.random.gender, data = df2, REML=FALSE)
+summary(model.random.gender)
+anova(model.random.gender,model.fixed.rt2)
 ```
-AIC 30922
-```{r probit-random-slope-AgeYrs, eval=FALSE}
-form.slope2 <- RT ~ Coh + Speed + PatternType + (1+AgeYrs|SubID)
-model.slope2 <- lmer(formula = form.slope2, data = df, REML=FALSE)
-summary(model.slope2)
-```
-AIC 30927
-AIC does not decrease in the random slope model
+AIC 23519 No significant difference
 
-# interaction
-```{r probit-interaction, eval=FALSE}
-form.full.interaction<- RT ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
-model.full.interaction <- lmer(formula = form.full.interaction, data = df, REML=FALSE)
-summary(model.full.interaction)
+### Gaussian model with interaction
+```{r rt-gaussian-interaction, eval=FALSE}
+form.interaction.rt<- RT.norm ~ Coh + Speed + PatternType  + Age+ Gender + Coh*Speed*PatternType+ (1|SubID)
+model.interaction.rt <- lmer(formula = form.interaction.rt, data = df2, REML=FALSE)
+summary(model.interaction.rt) #AIC 23507
 ```
-AIC 30921
-# bumped up max number of iterations.
-ss <- getME(model.full.interaction,c("theta","fixef"))
-m2 <- update(model.full.interaction,start=ss,control=glmerControl(optCtrl=list(maxfun=2e4)))
-# still failed,  Try a different optimizer
-m3 <- update(model.full.interaction,start=ss,control=glmerControl(optimizer="bobyqa",
-                            optCtrl=list(maxfun=2e5)))
-summary(m3)
-# AIC 5735, better model fit
-```{r Acc-coef-plot, include=TRUE}
-#ranef(model.full,confVar=T)
-#A generic function to extract the conditional modes of the random effects from a fitted model object.
-#coef(model.full)
-#coef is a generic function which extracts model coefficients from objects returned by modeling functions. coefficients is an alias for it.
-hist(ranef(m3)$SubID[1:30,],xlab="U0j",main="Histogram of random effects")
-hist(coef(m3)$SubID[1:30,1],xlab="Random intercepts",main="Histogram of random intercepts")
+```{r rt-gaussian-interaction, eval=FALSE}
+form.full.rt<- RT.norm ~ Coh + Speed + PatternType  + Age+ Gender + Age*Coh + Age*Speed +Age*PatternType + (1|SubID)
+model.full.rt <- lmer(formula = form.full.rt, data = df2, REML=FALSE)
+summary(model.full.rt) #AIC 23411
+anova(model.full.rt, model.interaction.rt)
 ```
 
-```{r subject-specific-regression-plot}
-#plot lines for the first 5 schools based on the posterior means (M3)
-plot(x=c(0,1),y=c(0,1),type="n",xlab="fixed effects",ylab="Acc",main="Subject-specific regression lines, m3")
-for(i in 1:30) {
-abline(a=coef(m3)$SubID[i,1],b=coef(m3)$SubID[i,2])
-}
+## survival function
+```{r survival-function}
+library(survival)
+# create a Surv object 
+survobj <- with(df2, Surv(RT,Acc))
+# Plot survival distribution of the total sample
+# Kaplan-Meier estimator 
+fit0 <- survfit(survobj~1, data=df2)
+summary(fit0)
+plot(fit0, xlab="RT", 
+  	ylab="% Surviving", yscale=100,
+   main="Survival Distribution (Overall)") 
+# Compare the survival distributions of men and women 
+fit1 <- survfit(survobj~Sex, data=df2)
+# plot the survival distributions by sex 
+plot(fit1, xlab="RT", 
+  ylab="% Surviving", yscale=100, col=c("red","blue"),
+  main="Survival Distributions by Gender") 
+  legend("topright", title="Gender", c("Male", "Female"),
+  fill=c("red", "blue"))
+# test for difference between male and female 
+# survival curves (logrank test) 
+survdiff(survobj~Sex, data=df2) 
+# predict male survival from age and correct/incorrect responses 
+MaleRep <- coxph(survobj~Age+Coh+Speed+PatternType,
+  data=df2, subset=Sex==2)
+# display results 
+MaleRep
+# evaluate the proportional hazards assumption 
+cox.zph(MaleRep)
+# predict female survival from age and correct/incorrect responses 
+femaleRep <- coxph(survobj~Age+Coh+Speed+PatternType,
+  data=df2, subset=Sex==1)
+femaleRep
+cox.zph(femaleRep)
 ```
-# logit link function
-```{r logit-interaction, eval=FALSE}
-form.logit.interaction<- Acc ~ Coh + Speed + PatternType + Coh*Speed*PatternType + (1|SubID)
-model.logit.interaction <- glmer(formula = form.logit.interaction, family=binomial(link="logit"), data = df)
-summary(model.logit.interaction)
-```
-#AIC 5732, smaller AIC
 
 
 
 
-## group analysis (ANOVA)
-# Acc
-# Plot of speed across patterns by age
 
+### plotting
+#### Plot of speed across patterns by age
 ```{r p-corr-by-speed-and-age-plot}
 # Evaluate Speed by Coherence interaction
 spd.by.coh <- df.bysub.bycond %>%
@@ -638,7 +667,6 @@ p7 <-
   geom_hline(yintercept=0.5, linetype="dashed")
 p7
 ```
-#RT
 
 # RT by pattern across age
 
@@ -688,11 +716,5 @@ p.rt
 
 
 ## threshold 
-
-## Gender effect
-
-## left/Right coherence
-
-## Age effect
 
 ## child v.s. adult 
